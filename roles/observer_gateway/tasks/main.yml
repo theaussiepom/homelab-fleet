@@ -39,6 +39,9 @@
       - vault_mqtt_username is defined
       - vault_mqtt_password is defined
       - vault_observer_private_key is not search('CHANGE_ME')
+      - vault_home_assistant_token is string
+      - vault_home_assistant_token | length > 0
+      - vault_home_assistant_token != 'CHANGE_ME'
       - vault_mcp_bearer_token != 'CHANGE_ME'
       - vault_mqtt_username != 'CHANGE_ME'
       - vault_mqtt_password != 'CHANGE_ME'

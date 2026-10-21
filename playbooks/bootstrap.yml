@@ -7,6 +7,7 @@
     - name: Restrict bootstrap to declared Raspberry Pis
       ansible.builtin.assert:
         that:
+          - ansible_play_hosts_all | length == 1
           - inventory_hostname in groups['raspberry_pis']
           - ansible_architecture in ['aarch64', 'arm64']
         quiet: true

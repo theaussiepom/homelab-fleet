@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-from catalog_fixture import inventory_data
-
-import hashlib
 import json
 import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
 
-import jinja2
 import pytest
+from catalog_fixture import inventory_data
 from test_zabbix_agent import ROLE, ROOT, read_yaml, render, run_validation, variables
 
 HOSTS = ["PiOne", "PiTwo", "PiThree"]
@@ -20,9 +17,10 @@ DOCKER = shutil.which("docker")
 
 
 def inventory_values(host: str) -> dict[str, Any]:
-    inventory = inventory_data('zabbix.yml')
+    inventory = inventory_data("zabbix.yml")
     group = inventory["all"]["children"]["zabbix_agents"]["children"]["zabbix_pi_agents"]
-    return variables(host) | group["vars"] | group["hosts"][host]
+    result: dict[str, Any] = variables(host) | group["vars"] | group["hosts"][host]
+    return result
 
 
 def test_role_requires_explicit_private_identity_contract() -> None:

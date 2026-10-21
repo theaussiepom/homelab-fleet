@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from catalog_fixture import inventory_data
-
 import json
 import os
 import shutil
@@ -15,6 +13,7 @@ from typing import Any
 import jinja2
 import pytest
 import yaml
+from catalog_fixture import inventory_data
 
 ROOT = Path(__file__).resolve().parents[1]
 ROLE = ROOT / "roles" / "zabbix_agent"
@@ -40,6 +39,7 @@ def variables(host: str = "PiOne") -> dict[str, Any]:
         zabbix_agent_controller_host="Controller",
         zabbix_agent_lazy_overlay_host="PiThree",
         zabbix_agent_admitted_overlay_network_id="x" * 25,
+        zabbix_agent_admitted_lazy_overlay_swarm_node_id="a" * 25,
         inventory_hostname=host,
         zabbix_agent_enabled=True,
         zabbix_agent_existing_project=beast,
@@ -153,7 +153,7 @@ def test_defaults_cannot_write_start_or_restart(tmp_path: Path) -> None:
 
 def test_pi_inventory_candidate_preserves_inactive_gates_and_adoption_baseline() -> None:
     defaults = read_yaml(ROLE / "defaults" / "main.yml")
-    inventory = inventory_data('zabbix.yml')["all"]
+    inventory = inventory_data("zabbix.yml")["all"]
     agents = inventory["children"]["zabbix_agents"]
     pis = agents["children"]["zabbix_pi_agents"]
     assert set(pis["hosts"]) == {"PiOne", "PiTwo", "PiThree"}
@@ -399,11 +399,11 @@ def test_pi_psk_option_still_requires_verified_secret_metadata(tmp_path: Path) -
 
 
 @pytest.mark.parametrize("host", ["PiOne", "PiThree"])
-def test_lazy_overlay_evidence_is_lounge_only(tmp_path: Path, host: str) -> None:
+def test_lazy_overlay_evidence_is_admitted_host_only(tmp_path: Path, host: str) -> None:
     values = variables(host) | {
         "zabbix_agent_overlay_absence_manager_verified": True,
         "zabbix_agent_overlay_attachment_approved": True,
-        "zabbix_agent_swarm_node_id": "sogaa85jhenw6hdpsp0590tbh",
+        "zabbix_agent_swarm_node_id": "a" * 25,
     }
     result = run_validation(tmp_path, values)
     assert (result.returncode == 0) is (host == "PiThree"), result.stdout + result.stderr
@@ -704,13 +704,19 @@ def test_selected_canonical_image_is_read_only_and_checked_before_up() -> None:
     up = next(task for task in tasks if task["name"].startswith("Reconcile only"))
     assert tasks.index(project) < tasks.index(inspect_image) < tasks.index(check) < tasks.index(up)
 
-@pytest.mark.parametrize("contract", [
-    {"zabbix_agent_admitted_hosts": []},
-    {"zabbix_agent_admitted_hosts": ["Other"]},
-    {"zabbix_agent_controller_host": "Other"},
-    {"zabbix_agent_lazy_overlay_host": "Controller"},
-])
-def test_unreviewed_site_contract_refused_before_host_access(tmp_path, contract):
+
+@pytest.mark.parametrize(
+    "contract",
+    [
+        {"zabbix_agent_admitted_hosts": []},
+        {"zabbix_agent_admitted_hosts": ["Other"]},
+        {"zabbix_agent_controller_host": "Other"},
+        {"zabbix_agent_lazy_overlay_host": "Controller"},
+    ],
+)
+def test_unreviewed_site_contract_refused_before_host_access(
+    tmp_path: Path, contract: dict[str, Any]
+) -> None:
     result = run_validation(tmp_path, variables() | contract)
     assert result.returncode != 0
     assert "changed=0" in result.stdout

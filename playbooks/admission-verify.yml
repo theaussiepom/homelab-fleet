@@ -9,8 +9,18 @@
         that:
           - ansible_play_hosts_all | length == 1
           - inventory_hostname in groups['raspberry_pis']
-          - telemetry_verification_passed | default(false) | bool
         quiet: true
+
+    - name: Verify fresh MQTT and Home Assistant telemetry directly
+      ansible.builtin.command:
+        argv:
+          - "{{ playbook_dir }}/../scripts/verify-telemetry"
+          - "{{ inventory_hostname }}"
+      delegate_to: localhost
+      become: false
+      changed_when: false
+      no_log: true
+      check_mode: false
 
   tasks:
     - name: Read mandatory service admission state

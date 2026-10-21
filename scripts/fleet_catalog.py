@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import re
 import sys
+from typing import Any, cast
 
 import yaml
 
@@ -20,8 +21,8 @@ def canonical(value: object) -> bytes:
     return (json.dumps(value, sort_keys=True, separators=(',', ':')) + '\n').encode()
 
 
-def load_catalog(path: Path) -> dict:
-    def unique(pairs):
+def load_catalog(path: Path) -> dict[str, Any]:
+    def unique(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
         result = {}
         for key, value in pairs:
             if key in result:
@@ -34,7 +35,7 @@ def load_catalog(path: Path) -> dict:
     return value
 
 
-def materialize(catalog: dict) -> dict[str, bytes]:
+def materialize(catalog: dict[str, Any]) -> dict[str, bytes]:
     if catalog.get('schema_version') != 1 or catalog.get('site', {}).get('environment') not in ('synthetic', 'production'):
         raise ValueError('unsupported site catalog')
     block = catalog.get('fleet_management')
@@ -76,7 +77,7 @@ def materialize(catalog: dict) -> dict[str, bytes]:
         if not isinstance(pair, list) or len(pair) != 2 or not all(isinstance(v, str) and v for v in pair):
             raise ValueError('invalid primary NFS policy')
 
-    def check_flags(value):
+    def check_flags(value: Any) -> None:
         if isinstance(value, dict):
             for key, item in value.items():
                 if (key.startswith('homelab_allow_') or key in ('homelab_retire_legacy_backup', 'fleet_profile_stage_admitted')) and item is not False:
@@ -94,6 +95,9 @@ def materialize(catalog: dict) -> dict[str, bytes]:
             lazy = values.get('zabbix_agent_lazy_overlay_host')
             if controller not in managed or lazy not in managed or controller == lazy:
                 raise ValueError('Zabbix host roles are incomplete')
+            node = values.get('zabbix_agent_admitted_lazy_overlay_swarm_node_id')
+            if not isinstance(node, str) or not re.fullmatch(r'[a-z0-9]{25}', node):
+                raise ValueError('Zabbix lazy-overlay node identity is required')
 
     output = {}
     for name, value in files.items():
@@ -109,7 +113,7 @@ def materialize(catalog: dict) -> dict[str, bytes]:
     return output
 
 
-def project(catalog: dict, destination: Path) -> dict:
+def project(catalog: dict[str, Any], destination: Path) -> dict[str, Any]:
     output = materialize(catalog)
     destination = destination.absolute()
     if destination.exists() or destination.is_symlink():
@@ -126,7 +130,7 @@ def project(catalog: dict, destination: Path) -> dict:
     return {'files': len(output), 'deployment_admitted': False, 'host_commands': 0}
 
 
-def verify_projection(catalog: dict, directory: Path) -> dict:
+def verify_projection(catalog: dict[str, Any], directory: Path) -> dict[str, Any]:
     expected = materialize(catalog)
     if directory.is_symlink() or not directory.is_dir():
         raise ValueError('inventory directory must be a real directory')
@@ -141,7 +145,7 @@ def verify_projection(catalog: dict, directory: Path) -> dict:
     for name, raw in expected.items():
         if (directory / name).read_bytes() != raw:
             raise ValueError('inventory bytes differ from catalog')
-    return json.loads(expected['projection.json'])
+    return cast(dict[str, Any], json.loads(expected['projection.json']))
 
 
 def main() -> int:

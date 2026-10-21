@@ -48,6 +48,9 @@
   ansible.builtin.assert:
     that:
       - vault_restic_password is defined
+      - vault_restic_password is string
+      - vault_restic_password | length > 0
+      - vault_restic_password is not search('[\x00-\x1f\x7f]')
       - vault_restic_password != 'CHANGE_ME'
     fail_msg: Define vault_restic_password in encrypted inventory vault.yml.
   when: not ansible_check_mode

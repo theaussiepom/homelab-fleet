@@ -46,7 +46,8 @@ zabbix_agent_runtime_gid: null
 zabbix_agent_verified_image_user: ""
 zabbix_agent_image_user_verified: false
 zabbix_agent_architecture: "{{ 'amd64' if inventory_hostname == zabbix_agent_controller_host else 'arm64' }}"
-zabbix_agent_hostname: "{{ 'zabbix-server' if inventory_hostname == zabbix_agent_controller_host else inventory_hostname }}"
+zabbix_agent_hostname: >-
+  {{ 'zabbix-server' if inventory_hostname == zabbix_agent_controller_host else inventory_hostname }}
 zabbix_agent_server_active: ""
 # Unencrypted is an explicit Pi-only alternative; existing controller host behavior stays PSK.
 zabbix_agent_transport_mode: psk
@@ -69,3 +70,6 @@ zabbix_agent_controller_host: ""
 zabbix_agent_lazy_overlay_host: ""
 zabbix_agent_root_anchor_approved: false
 zabbix_agent_admitted_overlay_network_id: ""
+
+# Exact private node identity for the separately admitted lazy-overlay exception.
+zabbix_agent_admitted_lazy_overlay_swarm_node_id: ""

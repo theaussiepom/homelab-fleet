@@ -5,7 +5,7 @@
   "hosts": {
 {% for host in groups['managed_hosts'] | sort %}
     {{ host | to_json }}: {
-      "reachable": {{ (hostvars[host].ansible_facts is defined) | to_json }},
+      "reachable": {{ (hostvars[host].ansible_facts.hostname is defined) | to_json }},
       "hostname": {{ hostvars[host].ansible_facts.hostname | default('unknown') | to_json }},
       "os": {{ hostvars[host].ansible_facts.distribution | default('unknown') | to_json }},
       "os_version": {{ hostvars[host].ansible_facts.distribution_version | default('unknown') | to_json }},
@@ -18,10 +18,10 @@
 {% endfor %}
   },
   "external_dependencies": {
-    "BenNAS": {
+    "storage": {
       "address": {{ lookup('ansible.builtin.env', 'HOMELAB_REPORT_STORAGE_ADDRESS', default=undef()) | to_json }},
       "managed": false,
-      "ssh_authentication": "unavailable during 2026-07-17 discovery"
+      "ssh_authentication": "not checked by this playbook"
     }
   }
 }

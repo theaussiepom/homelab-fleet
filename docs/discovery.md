@@ -3,7 +3,7 @@
 Run:
 
 ```sh
-uv run ansible-playbook playbooks/discover.yml
+uv run ansible-playbook -i "$HOMELAB_FLEET_INVENTORY/hosts.yml" playbooks/discover.yml
 ```
 
 The play reads facts, NFS mounts, bounded systemd properties, Code CLI versions,

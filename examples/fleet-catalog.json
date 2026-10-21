@@ -405,7 +405,8 @@
         ],
         "zabbix_agent_controller_host": "Controller",
         "zabbix_agent_lazy_overlay_host": "PiThree",
-        "zabbix_agent_admitted_overlay_network_id": "xxxxxxxxxxxxxxxxxxxxxxxxx"
+        "zabbix_agent_admitted_overlay_network_id": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "zabbix_agent_admitted_lazy_overlay_swarm_node_id": "aaaaaaaaaaaaaaaaaaaaaaaaa"
       },
       "group_vars/docker_hosts.yml": {
         "nfs_prerequisite_units": [],
@@ -528,7 +529,8 @@
             ],
             "zabbix_agent_controller_host": "Controller",
             "zabbix_agent_lazy_overlay_host": "PiThree",
-            "zabbix_agent_admitted_overlay_network_id": "xxxxxxxxxxxxxxxxxxxxxxxxx"
+            "zabbix_agent_admitted_overlay_network_id": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+            "zabbix_agent_admitted_lazy_overlay_swarm_node_id": "aaaaaaaaaaaaaaaaaaaaaaaaa"
           },
           "children": {
             "zabbix_agents": {
@@ -599,7 +601,8 @@
                       ],
                       "zabbix_agent_controller_host": "Controller",
                       "zabbix_agent_lazy_overlay_host": "PiThree",
-                      "zabbix_agent_root_anchor_approved": false
+                      "zabbix_agent_root_anchor_approved": false,
+                      "zabbix_agent_admitted_lazy_overlay_swarm_node_id": "aaaaaaaaaaaaaaaaaaaaaaaaa"
                     },
                     "PiTwo": {
                       "zabbix_agent_enabled": false,
@@ -664,7 +667,8 @@
                       ],
                       "zabbix_agent_controller_host": "Controller",
                       "zabbix_agent_lazy_overlay_host": "PiThree",
-                      "zabbix_agent_root_anchor_approved": false
+                      "zabbix_agent_root_anchor_approved": false,
+                      "zabbix_agent_admitted_lazy_overlay_swarm_node_id": "aaaaaaaaaaaaaaaaaaaaaaaaa"
                     },
                     "PiThree": {
                       "zabbix_agent_enabled": false,
@@ -729,7 +733,8 @@
                       ],
                       "zabbix_agent_controller_host": "Controller",
                       "zabbix_agent_lazy_overlay_host": "PiThree",
-                      "zabbix_agent_root_anchor_approved": false
+                      "zabbix_agent_root_anchor_approved": false,
+                      "zabbix_agent_admitted_lazy_overlay_swarm_node_id": "aaaaaaaaaaaaaaaaaaaaaaaaa"
                     }
                   }
                 }

@@ -17,7 +17,7 @@
   delegate_to: localhost
   become: false
   loop: "{{ fleet_network_profiles }}"
-  register: fleet_frozen_profiles
+  register: fleet_network_stage_frozen_profiles
   no_log: true
 
 - name: Require matching hash and disabled autoconnect
@@ -25,7 +25,7 @@
     that:
       - item.content | b64decode | hash('sha256') == item.item.sha256
       - "'autoconnect=false' in (item.content | b64decode)"
-  loop: "{{ fleet_frozen_profiles.results }}"
+  loop: "{{ fleet_network_stage_frozen_profiles.results }}"
   no_log: true
 
 - name: Inspect proposed destinations before creating new disabled profiles
@@ -33,13 +33,13 @@
     path: "/etc/NetworkManager/system-connections/{{ item.filename }}"
     checksum_algorithm: sha256
   loop: "{{ fleet_network_profiles }}"
-  register: fleet_existing_profiles
+  register: fleet_network_stage_existing_profiles
 
 - name: Preserve unexpected existing profile edits
   ansible.builtin.assert:
     that:
       - not item.stat.exists or item.stat.checksum == item.item.sha256
-  loop: "{{ fleet_existing_profiles.results }}"
+  loop: "{{ fleet_network_stage_existing_profiles.results }}"
   no_log: true
 
 - name: Stage exact disabled profiles without reloading or activating networking
@@ -48,6 +48,6 @@
     dest: "/etc/NetworkManager/system-connections/{{ item.item.filename }}"
     mode: "0600"
     backup: true
-  loop: "{{ fleet_frozen_profiles.results }}"
+  loop: "{{ fleet_network_stage_frozen_profiles.results }}"
   no_log: true
   diff: false

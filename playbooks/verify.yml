@@ -27,7 +27,11 @@
         argv: [/usr/bin/findmnt, --noheadings, --raw, --target, "{{ item.target }}", --output, "SOURCE,FSTYPE"]
       register: verified_mount
       changed_when: false
-      failed_when: item.source not in verified_mount.stdout or not verified_mount.stdout is search(' nfs4?$')
+      failed_when: >-
+        verified_mount.rc != 0 or
+        verified_mount.stdout.split() | length != 2 or
+        verified_mount.stdout.split()[0] != item.source or
+        verified_mount.stdout.split()[1] not in ['nfs', 'nfs4']
       loop: "{{ nfs_boot_mounts }}"
       when: inventory_hostname in groups['docker_hosts']
 

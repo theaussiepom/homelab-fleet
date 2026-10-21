@@ -1,5 +1,6 @@
 ---
-homelab_allow_mutation: false
-homelab_preserve_uid_gid: true
-fleet_profile_stage_admitted: false
-fleet_network_profiles: []
+# These cross-role admission inputs are a shared public interface.
+homelab_allow_mutation: false  # noqa: var-naming[no-role-prefix]
+homelab_preserve_uid_gid: true  # noqa: var-naming[no-role-prefix]
+fleet_profile_stage_admitted: false  # noqa: var-naming[no-role-prefix]
+fleet_network_profiles: []  # noqa: var-naming[no-role-prefix]

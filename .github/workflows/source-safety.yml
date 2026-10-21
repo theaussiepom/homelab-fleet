@@ -6,8 +6,8 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: source-safety-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: source-safety-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   source-safety:
     name: Source safety
@@ -33,7 +33,9 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: python .github/scripts/source_safety.py --head "$HEAD_SHA" --base "$BASE_SHA" --scanner "$RUNNER_TEMP/source-tools/gitleaks"
+        run: >-
+          python .github/scripts/source_safety.py --head "$HEAD_SHA" --base "$BASE_SHA"
+          --scanner "$RUNNER_TEMP/source-tools/gitleaks"
   dependency-review:
     name: Dependency review
     runs-on: ubuntu-24.04

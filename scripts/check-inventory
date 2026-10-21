@@ -7,12 +7,12 @@ import argparse
 import json
 import re
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -32,9 +32,14 @@ def group_hosts(inventory: dict[str, Any], group: str) -> set[str]:
     return set(children[group].get("hosts", {}))
 
 
-def check(*, include_secret_scan: bool = True, inventory_dir: Path | None = None,
-          catalog_path: Path | None = None) -> dict[str, Any]:
+def check(
+    *,
+    include_secret_scan: bool = True,
+    inventory_dir: Path | None = None,
+    catalog_path: Path | None = None,
+) -> dict[str, Any]:
     from fleet_catalog import load_catalog, verify_projection
+
     if inventory_dir is None or catalog_path is None:
         raise ValueError("explicit catalog and projected inventory required")
     contract = verify_projection(load_catalog(catalog_path), inventory_dir)
@@ -289,8 +294,11 @@ def main() -> None:
         if args.catalog is None or args.inventory is None:
             parser.error("--catalog and --inventory are required except with --secrets-only")
         try:
-            report = check(include_secret_scan=not args.skip_secrets,
-                           catalog_path=args.catalog, inventory_dir=args.inventory)
+            report = check(
+                include_secret_scan=not args.skip_secrets,
+                catalog_path=args.catalog,
+                inventory_dir=args.inventory,
+            )
         except (ValueError, OSError, KeyError, TypeError):
             report = {"ok": False, "errors": ["catalog/projection validation refused"]}
     payload = json.dumps(report, indent=2, sort_keys=True) + "\n"

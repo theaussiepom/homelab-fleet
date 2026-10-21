@@ -1,5 +1,5 @@
 """Projection checks run only against synthetic files in pytest temp directories."""
-import copy
+
 import json
 import sys
 from pathlib import Path
@@ -7,12 +7,12 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from fleet_catalog import load_catalog, materialize, project, verify_projection
 from catalog_fixture import CATALOG
+from fleet_catalog import load_catalog, project, verify_projection
 from test_inventory import load_inventory_checker
 
 
-def test_exact_projection_and_policy_roundtrip(tmp_path):
+def test_exact_projection_and_policy_roundtrip(tmp_path: Path) -> None:
     catalog = load_catalog(CATALOG)
     output = tmp_path / "inventory"
     assert project(catalog, output)["host_commands"] == 0
@@ -21,12 +21,13 @@ def test_exact_projection_and_policy_roundtrip(tmp_path):
     assert output.stat().st_mode & 0o777 == 0o700
     assert all(p.stat().st_mode & 0o777 == 0o600 for p in output.rglob("*") if p.is_file())
     result = load_inventory_checker().check(
-        catalog_path=CATALOG, inventory_dir=output, include_secret_scan=False)
+        catalog_path=CATALOG, inventory_dir=output, include_secret_scan=False
+    )
     assert result["ok"], result["errors"]
 
 
 @pytest.mark.parametrize("change", ["edit", "extra", "missing", "symlink", "policy"])
-def test_projection_changes_refused(tmp_path, change):
+def test_projection_changes_refused(tmp_path: Path, change: str) -> None:
     catalog = load_catalog(CATALOG)
     output = tmp_path / "inventory"
     project(catalog, output)
@@ -48,8 +49,10 @@ def test_projection_changes_refused(tmp_path, change):
         verify_projection(catalog, output)
 
 
-@pytest.mark.parametrize("change", ["path", "admitted", "flag", "unknown_host", "missing_hostvars", "pi_mismatch"])
-def test_bad_catalog_refused_before_writing(tmp_path, change):
+@pytest.mark.parametrize(
+    "change", ["path", "admitted", "flag", "unknown_host", "missing_hostvars", "pi_mismatch"]
+)
+def test_bad_catalog_refused_before_writing(tmp_path: Path, change: str) -> None:
     catalog = load_catalog(CATALOG)
     block = catalog["fleet_management"]
     files = block["inventory"]
@@ -71,31 +74,35 @@ def test_bad_catalog_refused_before_writing(tmp_path, change):
     assert not output.exists()
 
 
-def test_changed_nfs_pair_fails_even_with_self_consistent_projection(tmp_path):
+def test_changed_nfs_pair_fails_even_with_self_consistent_projection(tmp_path: Path) -> None:
     catalog = load_catalog(CATALOG)
-    catalog["fleet_management"]["inventory"]["host_vars/Controller.yml"]["nfs_boot_mounts"][0]["source"] = "wrong.example.invalid:/export"
+    catalog["fleet_management"]["inventory"]["host_vars/Controller.yml"]["nfs_boot_mounts"][0][
+        "source"
+    ] = "wrong.example.invalid:/export"
     catalog_path = tmp_path / "catalog.json"
     catalog_path.write_text(json.dumps(catalog))
     output = tmp_path / "inventory"
     project(catalog, output)
-    result = load_inventory_checker().check(catalog_path=catalog_path, inventory_dir=output, include_secret_scan=False)
+    result = load_inventory_checker().check(
+        catalog_path=catalog_path, inventory_dir=output, include_secret_scan=False
+    )
     assert not result["ok"]
     assert any("incorrect primary NFS" in error for error in result["errors"])
 
 
-def test_no_implicit_production_inventory():
+def test_no_implicit_production_inventory() -> None:
     with pytest.raises(ValueError, match="explicit catalog"):
         load_inventory_checker().check(include_secret_scan=False)
 
 
-def test_duplicate_catalog_keys_refused(tmp_path):
+def test_duplicate_catalog_keys_refused(tmp_path: Path) -> None:
     source = tmp_path / "duplicate.json"
     source.write_text('{"schema_version":1,"schema_version":1}')
     with pytest.raises(ValueError, match="duplicate"):
         load_catalog(source)
 
 
-def test_existing_destination_preserved(tmp_path):
+def test_existing_destination_preserved(tmp_path: Path) -> None:
     marker = tmp_path / "marker"
     marker.write_text("preserve")
     with pytest.raises(ValueError, match="must be new"):

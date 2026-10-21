@@ -3,6 +3,7 @@ extends: default
 ignore: |
   .ansible/
   .venv/
+  .work/
 rules:
   empty-lines:
     max-end: 1

@@ -37,7 +37,5 @@ uv run ansible-playbook -i "$inventory" "$root_dir/playbooks/enrol-pi.yml" \
 uv run ansible-playbook -i "$inventory" "$root_dir/playbooks/backup.yml" \
   --limit "$target_host" -e homelab_backup_execute=true
 uv run ansible-playbook -i "$inventory" "$root_dir/playbooks/verify.yml" --limit "$target_host"
-"$root_dir/scripts/verify-telemetry" "$target_host"
 uv run ansible-playbook -i "$inventory" "$root_dir/playbooks/admission-verify.yml" \
-  --limit "$target_host" -e "target_host=$target_host" \
-  -e telemetry_verification_passed=true
+  --limit "$target_host" -e "target_host=$target_host"

@@ -6,11 +6,11 @@
   serial: 1
   any_errors_fatal: true
   tasks:
-    - name: Require the explicit current three-Pi installation approval
+    - name: Require explicit installation approval for the admitted Pi
       ansible.builtin.assert:
         that:
           - zabbix_agent_root_anchor_approved | default(false) | bool
-          - inventory_hostname in ['Pironman', 'ZigbeePi', 'LoungeOTBR']
+          - inventory_hostname in zabbix_agent_admitted_hosts
         quiet: true
 
     - name: Inspect root directory metadata

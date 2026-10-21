@@ -36,11 +36,11 @@ projection; `pytest` uses temporary fixtures. No fleet hosts are contacted.
 
 ---
 
-> Uncommitted split draft: production inventory is intentionally absent. A reviewed projection from the sole private site catalog is required before these fleet playbooks can execute. See SPLIT-DRAFT.md.
+> Public integration branch: production inventory is intentionally absent. A reviewed projection from the sole private site catalog is required before these fleet playbooks can execute. See SPLIT-DRAFT.md.
 
 # homelab-fleet
 
-Private, declarative fleet management for the existing Home Lab hosts. This
+Declarative fleet management with private deployment inputs for the existing Home Lab hosts. This
 repository owns Ansible inventory, adoption and enrolment, NFS-before-Docker boot
 ordering, Code Tunnel, Pi telemetry, configuration-only backups, the OTBR
 watchdog, and the host-specific deployment policy for read-only diagnostics.
@@ -58,7 +58,7 @@ homelab-fleet -> /opt/homelab-observer/venv
 
 There is no observer Python source in this repository. Inventory generates the
 versioned runtime configuration; the released application never parses Ansible.
-The committed pin is in `${HOMELAB_FLEET_INVENTORY}/group_vars/all.yml`, and the update,
+The private projected pin is in `${HOMELAB_FLEET_INVENTORY}/group_vars/all.yml`, and the update,
 rollout, and rollback procedure is in `docs/observer-release.md`.
 
 No playbook applies production changes automatically. Start locally with:
@@ -66,12 +66,12 @@ No playbook applies production changes automatically. Start locally with:
 ```sh
 uv sync --all-groups
 make test
-uv run ansible-playbook playbooks/discover.yml
-uv run ansible-playbook playbooks/adopt.yml --check --diff \
+uv run ansible-playbook -i "$HOMELAB_FLEET_INVENTORY/hosts.yml" playbooks/discover.yml
+uv run ansible-playbook -i "$HOMELAB_FLEET_INVENTORY/hosts.yml" playbooks/adopt.yml --check --diff \
   -e homelab_observer_local_artifact=/absolute/path/to/reviewed.whl
 ```
 
-The local artifact must match the committed SHA-256. Omit that override only after
+The local artifact must match the reviewed private catalog SHA-256. Omit that override only after
 the exact private release asset exists and is accessible to the managed hosts.
 Review `AGENTS.md`, `docs/retrofit.md`, `docs/rollback.md`, and Vault handling in
 `docs/security.md` before any live application. Current evidence is under

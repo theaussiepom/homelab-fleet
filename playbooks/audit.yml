@@ -7,6 +7,10 @@
       ansible.builtin.command:
         argv:
           - "{{ playbook_dir }}/../scripts/check-inventory"
+          - --catalog
+          - "{{ lookup('ansible.builtin.env', 'HOMELAB_SITE_CATALOG') }}"
+          - --inventory
+          - "{{ lookup('ansible.builtin.env', 'HOMELAB_FLEET_INVENTORY') }}"
           - --report
           - "{{ playbook_dir }}/../reports/fleet-audit.json"
       changed_when: false

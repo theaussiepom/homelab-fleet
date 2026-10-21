@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-from catalog_fixture import inventory_data
-
 import os
 import subprocess
 from pathlib import Path
 
 import pytest
-import yaml
+from catalog_fixture import inventory_data
 from jinja2 import Environment
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -132,8 +130,8 @@ def test_absent_boot_mount_revalidated(
 
 
 def test_both_export_units_and_adoption_contract() -> None:
-    defaults = inventory_data('group_vars/docker_hosts.yml')
-    host = inventory_data('host_vars/Controller.yml')
+    defaults = inventory_data("group_vars/docker_hosts.yml")
+    host = inventory_data("host_vars/Controller.yml")
     template_root = ROOT / "roles/nfs_docker/templates"
     for hostvars in (host, {"nfs_boot_mounts": [host["nfs_boot_mounts"][0]]}):
         context = defaults | hostvars
@@ -164,5 +162,5 @@ def test_both_export_units_and_adoption_contract() -> None:
     assert "item.item.source in item.stdout" not in tasks
     assert "20-homelab-nfs-preflight.conf" in tasks
     assert "dest: /etc/systemd/system/docker.service.d/override.conf" not in tasks
-    flags = inventory_data('group_vars/all.yml')
+    flags = inventory_data("group_vars/all.yml")
     assert not any(v for k, v in flags.items() if k.startswith("homelab_allow_"))

@@ -1,15 +1,17 @@
 # Repository split plan
 
-Recorded before destructive restructuring on 17 July 2026 (Australia/Sydney).
+Historical plan recorded on 17 July 2026 (Australia/Sydney), before the
+observer extraction. It is provenance, not the current public-repository rollout.
+See `SPLIT-DRAFT.md` for current integration status.
 
 ## Starting evidence
 
-- Repository: `/Users/bennis/code/homelab-fleet`
+- Repository: `<workspace>/homelab-fleet`
 - Branch and commit: `main` at `69d2ae8` (`Initial commit`)
 - Remote: `origin` at `https://github.com/theaussiepom/homelab-fleet.git`
 - The combined implementation is present as uncommitted work, so tagging the
   original `HEAD` would not preserve it.
-- `/Users/bennis/code/homelab-observer` does not exist.
+- `<workspace>/homelab-observer` does not exist.
 - No remote push, force-push, live-host apply, service action, mount action, or
   production mutation is part of this split.
 
@@ -20,7 +22,7 @@ Recorded before destructive restructuring on 17 July 2026 (Australia/Sydney).
 2. Create the annotated tag `monorepo-split-base` on that snapshot.
 3. Use `git subtree split --prefix=observer` to create a temporary extracted
    history containing the observer directory at repository root.
-4. Clone that extracted commit into `/Users/bennis/code/homelab-observer` and
+4. Clone that extracted commit into `<workspace>/homelab-observer` and
    add its independent packaging, documentation, configuration schema, tests,
    lockfile, and release policy in a new commit.
 5. Refactor `homelab-fleet` in a later commit: remove observer Python source and

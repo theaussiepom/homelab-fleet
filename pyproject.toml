@@ -37,3 +37,4 @@ ignore = ["S101", "S603", "S607"]
 python_version = "3.11"
 strict = true
 files = ["tests"]
+mypy_path = ["scripts"]

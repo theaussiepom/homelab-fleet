@@ -8,7 +8,7 @@ Facts are taken from read-only discovery on 17 July 2026. Items labelled
 - Existing SSH aliases and users remain the operator entry points. BenBeast's
   account could not run passwordless sudo; an encrypted become password may be
   required for its check/apply phases.
-- BenNAS responded on port 31722 but rejected the available key. NAS server-side
+- The external NAS rejected the available key. NAS server-side
   state is unverified and remains out of scope; mounted client evidence is used.
 - `broker.mqtt` is the reporter's existing configured broker name. BenBeast's
   existing Mosquitto mapping at port 1883 is independently observed. Credentials
@@ -32,8 +32,7 @@ Facts are taken from read-only discovery on 17 July 2026. Items labelled
 - Fresh MQTT publications, HA registry devices/entities, and fresh HA state have
   not been claimed until `scripts/verify-telemetry` runs with credentials.
 - BenBeast CPU package temperature is a host-local MQTT publisher
-  (`/home/ben/benbeast-cpu-temp`, client `homelab-benbeast-cpu`, user
-  `mqtt-benbeast`), not part of `homelab-observer` or the Pi reporter role.
+  (private source path, MQTT client ID and MQTT username), not part of `homelab-observer` or the Pi reporter role.
   Home Assistant discovery entity is `sensor.benbeast_cpu_temperature`.
 - Idempotence is not claimed until two approved applies have been observed with
   the second producing zero changes. Local static/idempotence-oriented tests alone

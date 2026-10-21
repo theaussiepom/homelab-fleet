@@ -4,6 +4,9 @@ import importlib.util
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
 from types import ModuleType
+from typing import Any, cast
+
+import pytest
 
 
 def load_inventory_checker() -> ModuleType:
@@ -37,6 +40,20 @@ def test_no_observer_python_source_exists_in_fleet() -> None:
     assert module.scan_observer_source_boundaries() == []
 
 
+def test_secret_scan_reports_filename_without_secret_value(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = load_inventory_checker()
+    marker = "synthetic-" + "private-test-value"
+    source = tmp_path / "fixture.txt"
+    source.write_text("password: " + marker + "\n")
+    monkeypatch.setattr(module, "ROOT", tmp_path)
+    monkeypatch.setattr(module, "tracked_file_names", lambda: ["fixture.txt"])
+    findings = module.scan_tracked_secrets()
+    assert findings == ["possible plaintext secret in tracked file: fixture.txt"]
+    assert marker not in str(findings)
+
+
 def test_every_role_has_tasks() -> None:
     root = Path(__file__).resolve().parents[1]
     required = {
@@ -57,9 +74,12 @@ def test_every_role_has_tasks() -> None:
     assert all((root / "roles" / role / "tasks/main.yml").exists() for role in required)
 
 
-def fixture_check(module, tmp_path, **kwargs):
+def fixture_check(module: ModuleType, tmp_path: Path, **kwargs: Any) -> dict[str, Any]:
     from catalog_fixture import CATALOG
     from fleet_catalog import load_catalog, project
+
     destination = tmp_path / "inventory"
     project(load_catalog(CATALOG), destination)
-    return module.check(catalog_path=CATALOG, inventory_dir=destination, **kwargs)
+    return cast(
+        dict[str, Any], module.check(catalog_path=CATALOG, inventory_dir=destination, **kwargs)
+    )

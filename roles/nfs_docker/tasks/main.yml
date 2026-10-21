@@ -69,6 +69,14 @@
     backup: true
   notify: Reload systemd configuration
 
+- name: Create the Docker systemd drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/docker.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
 - name: Install Docker dependency drop-in
   ansible.builtin.template:
     src: docker-override.conf.j2

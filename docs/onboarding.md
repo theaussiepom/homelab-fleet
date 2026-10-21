@@ -11,10 +11,10 @@ new hosts never clone either repository.
 Validate and check first:
 
 ```sh
-scripts/check-inventory
-uv run ansible-playbook playbooks/bootstrap.yml --check --diff \
+scripts/check-inventory --catalog "$HOMELAB_SITE_CATALOG" --inventory "$HOMELAB_FLEET_INVENTORY"
+uv run ansible-playbook -i "$HOMELAB_FLEET_INVENTORY/hosts.yml" playbooks/bootstrap.yml --check --diff \
   -e target_host=GaragePi --limit GaragePi
-uv run ansible-playbook playbooks/enrol-pi.yml --check --diff \
+uv run ansible-playbook -i "$HOMELAB_FLEET_INVENTORY/hosts.yml" playbooks/enrol-pi.yml --check --diff \
   -e target_host=GaragePi --limit GaragePi
 ```
 
@@ -41,3 +41,8 @@ Then rerun enrolment. A host remains unadmitted until the tunnel is enabled,
 active, and not restart-looping; two MQTT publications are observed; HA has a
 distinct device/unique IDs and fresh state; one restic backup/check succeeds;
 observer access works; and mandatory units are healthy.
+
+The reviewed lazy-overlay exception also requires
+`zabbix_agent_admitted_lazy_overlay_swarm_node_id` in the private catalog. Populate
+it with the separately verified Swarm node identity before materializing inventory.
+The public example uses a synthetic identifier; it admits no existing host.

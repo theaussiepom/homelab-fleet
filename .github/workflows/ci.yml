@@ -26,7 +26,9 @@ jobs:
       - run: ansible-galaxy collection install -r requirements.yml -p .work/collections
       - run: python -m pytest -q -p no:cacheprovider
       - run: python scripts/fleet_catalog.py --catalog examples/fleet-catalog.json --out "$RUNNER_TEMP/fleet-inventory"
-      - run: python scripts/check-inventory --skip-secrets --catalog examples/fleet-catalog.json --inventory "$RUNNER_TEMP/fleet-inventory"
+      - run: >-
+          python scripts/check-inventory --skip-secrets --catalog examples/fleet-catalog.json
+          --inventory "$RUNNER_TEMP/fleet-inventory"
       - name: Check every playbook without contacting hosts
         shell: bash
         run: |

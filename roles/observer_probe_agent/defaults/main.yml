@@ -1,0 +1,15 @@
+---
+observer_probe_agent_install_root: /opt/homelab-observer
+observer_probe_agent_venv: /opt/homelab-observer/venv
+observer_probe_agent_config_path: /etc/homelab-observer/runtime.json
+observer_probe_agent_state_directory: /var/lib/homelab-observer
+observer_probe_agent_artifact_directory: /var/lib/homelab-observer/artifacts
+observer_probe_agent_artifact_filename: >-
+  homelab_observer-{{ homelab_observer_version }}-py3-none-any.whl
+observer_probe_agent_artifact_path: >-
+  {{ observer_probe_agent_artifact_directory }}/{{ observer_probe_agent_artifact_filename }}
+observer_probe_agent_process_limit: 64
+observer_probe_agent_file_size_kb: 1024
+observer_probe_agent_ha_freshness_minutes: 10
+observer_probe_agent_mqtt_observation_timeout_seconds: 10
+observer_probe_agent_gateway_connect_timeout_seconds: 8

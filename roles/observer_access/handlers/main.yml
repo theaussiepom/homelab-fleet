@@ -1,0 +1,6 @@
+---
+- name: Conditionally reload SSH
+  ansible.builtin.systemd_service:
+    name: ssh.service
+    state: reloaded
+  when: homelab_allow_service_restart | bool

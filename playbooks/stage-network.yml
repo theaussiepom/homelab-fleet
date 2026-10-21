@@ -1,0 +1,9 @@
+---
+- name: Stage separately admitted disabled Pi profiles
+  hosts: physical_pis
+  become: true
+  gather_facts: false
+  serial: 1
+  roles:
+    - role: fleet_admission
+    - role: fleet_network_stage

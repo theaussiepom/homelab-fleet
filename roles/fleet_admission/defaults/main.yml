@@ -1,0 +1,5 @@
+---
+homelab_allow_mutation: false
+homelab_preserve_uid_gid: true
+fleet_profile_stage_admitted: false
+fleet_network_profiles: []

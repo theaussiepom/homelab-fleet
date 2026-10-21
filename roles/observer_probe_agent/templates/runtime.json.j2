@@ -1,0 +1,59 @@
+{
+  "schema_version": {{ homelab_observer_schema_version | int }},
+  "hosts": {
+{% for host in groups['managed_hosts'] | sort %}
+    {{ host | to_json }}: {
+      "canonical_name": {{ host | to_json }},
+      "ssh_destination": {{ hostvars[host].ansible_host | to_json }},
+      "capabilities": {{ hostvars[host].fleet_capabilities | default([]) | to_json }},
+      "services": {{ hostvars[host].observer_services | default([]) | to_json }},
+      "containers": {{ hostvars[host].observer_containers | default([]) | to_json }},
+      "telemetry_sensor_name": {{ hostvars[host].telemetry_sensor_name | default('') | to_json }},
+      "telemetry_base_topic": {{ hostvars[host].telemetry_base_topic | default('') | to_json }},
+      "telemetry_client_id": {{ hostvars[host].telemetry_mqtt_client_id | default('') | to_json }}
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+  },
+  "command_policy": {
+    "default_timeout_seconds": {{ observer_default_timeout_seconds | int }},
+    "max_timeout_seconds": {{ observer_max_timeout_seconds | int }},
+    "default_output_kb": {{ observer_default_output_kb | int }},
+    "max_output_kb": {{ observer_max_output_kb | int }},
+    "process_limit": {{ observer_probe_agent_process_limit | int }},
+    "file_size_kb": {{ observer_probe_agent_file_size_kb | int }},
+    "scratch_directory": "/var/lib/chatgpt-diag/scratch",
+    "sanitised_path": [
+      "/opt/homelab-observer/venv/bin",
+      "/usr/local/bin",
+      "/usr/bin",
+      "/bin",
+      "/usr/sbin",
+      "/sbin"
+    ]
+  },
+  "home_assistant": {
+    "base_url": {{ home_assistant_api_url | to_json }},
+    "freshness_minutes": {{ observer_probe_agent_ha_freshness_minutes | int }}
+  },
+  "mqtt": {
+    "host": {{ mqtt_broker_host | to_json }},
+    "port": {{ mqtt_broker_port | int }},
+    "observation_timeout_seconds": {{ observer_probe_agent_mqtt_observation_timeout_seconds | int }}
+  },
+  "audit": {
+    "logger_name": "homelab-observer-gateway",
+    "syslog_ident": "homelab-diag-runner"
+  },
+  "gateway": {
+    "ssh_user": {{ observer_user | to_json }},
+    "identity_file": "/var/lib/homelab-observer/ssh/id_ed25519",
+    "known_hosts_file": "/var/lib/homelab-observer/ssh/known_hosts",
+    "concurrency": {{ observer_max_concurrency | int }},
+    "connect_timeout_seconds": {{ observer_probe_agent_gateway_connect_timeout_seconds | int }},
+    "hlctl_command": "/opt/homelab-observer/venv/bin/hlctl"
+  },
+  "mcp": {
+    "bind_host": {{ observer_mcp_bind_host | to_json }},
+    "bind_port": {{ observer_mcp_bind_port | int }}
+  }
+}

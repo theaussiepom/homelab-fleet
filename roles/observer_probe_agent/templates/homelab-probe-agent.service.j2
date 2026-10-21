@@ -1,0 +1,26 @@
+# Ansible-managed by homelab-fleet. Do not edit.
+[Unit]
+Description=Home Lab fixed read-only privileged probe agent
+After=local-fs.target
+Before=homelab-observer-gateway.service
+
+[Service]
+Type=simple
+User=root
+Group={{ observer_group }}
+ExecStart=/opt/homelab-observer/venv/bin/homelab-probe-agent --config /etc/homelab-observer/runtime.json --host {{ inventory_hostname }} --socket {{ observer_socket_path }} --group {{ observer_group }}
+Restart=on-failure
+RestartSec=10
+RuntimeDirectory=homelab-observer
+RuntimeDirectoryMode=0750
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/run/homelab-observer /var/lib/homelab-observer
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+root_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+observer_command=${HOMELAB_TELEMETRY_VERIFY_BIN:-/opt/homelab-observer/venv/bin/homelab-telemetry-verify}
+observer_config=${HOMELAB_OBSERVER_CONFIG:-/etc/homelab-observer/runtime.json}
+
+if [[ ! -x "$observer_command" ]]; then
+  echo "observer verifier is not installed: $observer_command" >&2
+  exit 69
+fi
+
+exec "$observer_command" \
+  --config "$observer_config" \
+  --output-directory "$root_dir/reports" \
+  "$@"

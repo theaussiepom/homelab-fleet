@@ -1,0 +1,5 @@
+---
+code_tunnel_binary: /usr/local/bin/code
+code_tunnel_download_url: ""
+code_tunnel_download_checksum: ""
+code_tunnel_require_active: true

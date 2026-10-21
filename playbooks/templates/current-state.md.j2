@@ -1,0 +1,32 @@
+# Current fleet state
+
+Generated read-only at {{ discovery_timestamp.stdout }} (Australia/Sydney report timezone).
+
+No production files, mounts, containers, services, or radio configuration were changed.
+
+{% for host in groups['managed_hosts'] | sort %}
+## {{ host }}
+
+- Hostname: `{{ hostvars[host].ansible_facts.hostname | default('unknown') }}`
+- OS: {{ hostvars[host].ansible_facts.distribution | default('unknown') }} {{ hostvars[host].ansible_facts.distribution_version | default('unknown') }}
+- Architecture: `{{ hostvars[host].ansible_facts.architecture | default('unknown') }}`
+- Code Tunnel: `{{ (hostvars[host].discovery_code_version.stdout_lines | default(['not found']))[0] }}`
+- NFS mounts:
+{% for item in hostvars[host].discovery_nfs.stdout_lines | default([]) %}
+  - `{{ item }}`
+{% else %}
+  - none observed
+{% endfor %}
+- Containers:
+{% for item in hostvars[host].discovery_containers.stdout_lines | default([]) %}
+  - `{{ item }}`
+{% else %}
+  - unavailable
+{% endfor %}
+
+{% endfor %}
+## External dependency
+
+BenNAS (`{{ lookup('ansible.builtin.env', 'HOMELAB_REPORT_STORAGE_ADDRESS', default=undef()) }}`, SSH port 31722) responded but rejected the available
+SSH key during initial discovery. It remains unmanaged; only client-side mount
+evidence was used.

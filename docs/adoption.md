@@ -1,0 +1,7 @@
+# Host-by-host adoption boundaries
+
+Preserve actual numeric UID/GID, source ownership, radio/fabric IDs, host-network requirements, serial by-id, MQTT/HA/Code Tunnel identities and trusted keys. No remapping/chown or global owner normalization is selected. Keep current NFS ordering while live sources still depend on NAS; selected Pi-local state needs an explicit coherent source handover and native recovery proof before removing that dependency.
+
+Keep service-aware capture and backup upload separate. A dedicated upload account owns transferred archive files, not live application data or archive-internal numeric ownership. Preserve existing backup jobs until qualified replacement capture/metadata/ACL/link/native restore/freshness/scheduled transfer and isolation pass. NAS copies on the same NAS are not independent disaster recovery.
+
+Before replacing any existing trusted enrolment/controller function, freeze the exact private source generation and tests, adapt into controller-neutral public roles, preserve independent recovery and qualify the new actual source restrictions/operation wrapper. The current starter release contains discovery/profile staging only. Native capture/transfer, trust enrolment, telemetry, watchdog and full lifecycle adoption remain explicit further work. Do not expand observer deployment, reset a radio or simulate a hard OTBR failure to complete this preparation.

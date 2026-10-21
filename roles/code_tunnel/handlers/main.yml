@@ -1,0 +1,10 @@
+---
+- name: Reload systemd for Code Tunnel
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Conditionally restart Code Tunnel
+  ansible.builtin.systemd_service:
+    name: code-tunnel.service
+    state: restarted
+  when: homelab_allow_service_restart | bool

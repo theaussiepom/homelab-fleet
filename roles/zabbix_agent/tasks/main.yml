@@ -1,0 +1,51 @@
+---
+- name: Validate Zabbix agent mutation gates have boolean types
+  ansible.builtin.assert:
+    that:
+      - zabbix_agent_enabled is boolean
+      - zabbix_agent_install_enabled is boolean
+      - zabbix_agent_deploy_enabled is boolean
+      - zabbix_agent_canonical_integrated is boolean
+      - zabbix_agent_version_change_approved is boolean
+      - zabbix_agent_maintenance_window_approved is boolean
+      - zabbix_agent_runtime_baseline_confirmed is boolean
+      - zabbix_agent_transport_ready is boolean
+      - zabbix_agent_version_compatibility_reviewed is boolean
+      - zabbix_agent_secret_boundary_verified is boolean
+      - zabbix_agent_central_identity_confirmed is boolean
+      - zabbix_agent_overlay_attachment_approved is boolean
+      - zabbix_agent_overlay_absence_manager_verified is boolean
+      - zabbix_agent_image_user_verified is boolean
+      - homelab_allow_service_restart is boolean
+      - not zabbix_agent_deploy_enabled or zabbix_agent_install_enabled
+      - not zabbix_agent_install_enabled or zabbix_agent_enabled
+    quiet: true
+
+- name: Describe disabled Zabbix agent preparation
+  ansible.builtin.debug:
+    msg: Agent role is disabled; no host inspection, file write, pull or container action is requested.
+  when: not zabbix_agent_enabled
+
+- name: Validate exact enabled agent inputs
+  ansible.builtin.include_tasks: validate.yml
+  when: zabbix_agent_enabled
+
+- name: Inspect approved installation prerequisites without reading secrets
+  ansible.builtin.include_tasks: inspect.yml
+  when:
+    - zabbix_agent_enabled
+    - zabbix_agent_install_enabled
+
+- name: Prepare inactive agent configuration with timestamped backups
+  ansible.builtin.include_tasks: prepare.yml
+  when:
+    - zabbix_agent_enabled
+    - zabbix_agent_install_enabled
+
+- name: Activate only the approved agent within its own Compose project
+  ansible.builtin.include_tasks: activate.yml
+  when:
+    - zabbix_agent_enabled
+    - zabbix_agent_install_enabled
+    - zabbix_agent_deploy_enabled
+    - not ansible_check_mode

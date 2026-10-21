@@ -1,0 +1,61 @@
+---
+- name: Inspect Code Tunnel binary
+  ansible.builtin.stat:
+    path: "{{ code_tunnel_binary }}"
+  register: code_tunnel_binary_stat
+
+- name: Require pinned installer inputs when Code Tunnel is absent
+  ansible.builtin.assert:
+    that:
+      - code_tunnel_download_url | length > 0
+      - code_tunnel_download_checksum | length > 0
+    fail_msg: >-
+      Code Tunnel is absent. Set a reviewed code_tunnel_download_url and SHA-256
+      checksum; no host identity or authentication database will be copied.
+  when: not code_tunnel_binary_stat.stat.exists
+
+- name: Install pinned Code Tunnel binary for a new host
+  ansible.builtin.get_url:
+    url: "{{ code_tunnel_download_url }}"
+    checksum: "{{ code_tunnel_download_checksum }}"
+    dest: "{{ code_tunnel_binary }}"
+    owner: root
+    group: root
+    mode: "0755"
+  when: not code_tunnel_binary_stat.stat.exists
+
+- name: Install host-specific Code Tunnel service without copying identity state
+  ansible.builtin.template:
+    src: code-tunnel.service.j2
+    dest: /etc/systemd/system/code-tunnel.service
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  notify:
+    - Reload systemd for Code Tunnel
+    - Conditionally restart Code Tunnel
+
+- name: Enable Code Tunnel without forcing a start
+  ansible.builtin.systemd_service:
+    name: code-tunnel.service
+    enabled: true
+    daemon_reload: true
+
+- name: Complete any explicitly approved Code Tunnel handler
+  ansible.builtin.meta: flush_handlers
+
+- name: Gather service state for admission
+  ansible.builtin.service_facts:
+
+- name: Verify existing Code Tunnel is active and not restart-looping
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.services['code-tunnel.service'].status == 'enabled'
+      - ansible_facts.services['code-tunnel.service'].state == 'running'
+    fail_msg: >-
+      Code Tunnel is not admitted. Complete the host-local login with:
+      sudo {{ code_tunnel_binary }} tunnel user login
+  when:
+    - code_tunnel_require_active | bool
+    - not ansible_check_mode

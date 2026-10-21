@@ -1,0 +1,128 @@
+---
+- name: Verify and report one new Raspberry Pi admission
+  hosts: "{{ target_host | default('none') }}"
+  gather_facts: false
+  become: true
+  pre_tasks:
+    - name: Restrict admission to one declared Pi after telemetry verification
+      ansible.builtin.assert:
+        that:
+          - ansible_play_hosts_all | length == 1
+          - inventory_hostname in groups['raspberry_pis']
+          - telemetry_verification_passed | default(false) | bool
+        quiet: true
+
+  tasks:
+    - name: Read mandatory service admission state
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/systemctl
+          - show
+          - --no-pager
+          - --property=Id,ActiveState,UnitFileState,NRestarts
+          - code-tunnel.service
+          - isp-rpi-reporter.service
+          - homelab-probe-agent.service
+      register: admission_services
+      changed_when: false
+
+    - name: Require mandatory services to be enabled, active, and stable
+      ansible.builtin.assert:
+        that:
+          - admission_services.stdout | regex_findall('ActiveState=active') | length == 3
+          - admission_services.stdout | regex_findall('UnitFileState=enabled') | length == 3
+          - >-
+            admission_services.stdout | regex_findall('NRestarts=([0-9]+)') |
+            map('int') | select('ge', 3) | list | length == 0
+        quiet: true
+
+    - name: Read configuration backup timer state
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/systemctl
+          - show
+          - --no-pager
+          - --property=LoadState,ActiveState,UnitFileState
+          - homelab-config-backup.timer
+      register: admission_backup_timer
+      changed_when: false
+
+    - name: Require enabled backup timer
+      ansible.builtin.assert:
+        that:
+          - "'LoadState=loaded' in admission_backup_timer.stdout"
+          - "'ActiveState=active' in admission_backup_timer.stdout"
+          - "'UnitFileState=enabled' in admission_backup_timer.stdout"
+        quiet: true
+
+    - name: Read identity and successful backup evidence
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      register: admission_files
+      loop:
+        - /etc/homelab/identity.yml
+        - /var/lib/homelab-backup/last-check-ok
+        - "{{ observer_socket_path }}"
+
+    - name: Require identity, checked backup, and observer socket
+      ansible.builtin.assert:
+        that:
+          - admission_files.results | map(attribute='stat.exists') | select('equalto', false) | list | length == 0
+        quiet: true
+
+    - name: Exercise the fixed probe as the diagnostic account
+      ansible.builtin.command:
+        argv:
+          - /usr/sbin/runuser
+          - --user
+          - "{{ observer_user }}"
+          - --
+          - /opt/homelab-observer/venv/bin/hlctl
+          - host_summary
+      register: admission_local_probe
+      changed_when: false
+
+    - name: Exercise the forced-command path from BenBeast
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/ssh
+          - -i
+          - /var/lib/homelab-observer/ssh/id_ed25519
+          - -o
+          - BatchMode=yes
+          - -o
+          - ConnectTimeout=8
+          - -o
+          - IdentitiesOnly=yes
+          - -o
+          - StrictHostKeyChecking=yes
+          - -o
+          - UserKnownHostsFile=/var/lib/homelab-observer/ssh/known_hosts
+          - "{{ observer_user }}@{{ ansible_host }}"
+          - /opt/homelab-observer/venv/bin/hlctl
+          - host_summary
+      delegate_to: BenBeast
+      register: admission_gateway_probe
+      changed_when: false
+
+    - name: Capture Australia Sydney admission timestamp
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/env
+          - python3
+          - -c
+          - >-
+            from datetime import datetime; from zoneinfo import ZoneInfo;
+            print(datetime.now(ZoneInfo('Australia/Sydney')).isoformat(timespec='seconds'))
+      delegate_to: localhost
+      become: false
+      register: admission_timestamp
+      changed_when: false
+
+    - name: Write successful local admission report
+      ansible.builtin.template:
+        src: templates/admission.md.j2
+        dest: "{{ playbook_dir }}/../reports/{{ inventory_hostname }}-admission.md"
+        mode: "0644"
+      delegate_to: localhost
+      become: false

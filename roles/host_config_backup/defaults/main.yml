@@ -1,0 +1,15 @@
+---
+host_config_backup_common_paths:
+  - /etc/systemd/system
+  - /etc/docker
+  - /etc/fstab
+  - /etc/ssh/sshd_config
+  - /etc/ssh/sshd_config.d
+  - /etc/network
+  - /etc/NetworkManager
+  - /etc/systemd/network
+  - /etc/homelab
+  - /etc/homelab-observer
+  - /usr/local/libexec/homelab-nfs-ensure
+  - /usr/local/sbin/otbr-rcp-watchdog
+host_config_backup_extra_paths: []

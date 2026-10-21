@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Ansible-managed by homelab-fleet. Configuration-only rebuild copy on the same NAS.
+set -euo pipefail
+umask 077
+
+state_dir=/var/lib/homelab-backup
+mount_target={{ backup_mount_target | quote }}
+expected_source={{ backup_nfs_source | quote }}
+repository={{ (backup_mount_target ~ '/restic/' ~ inventory_hostname) | quote }}
+
+current=$(/usr/bin/findmnt --noheadings --raw --target "$mount_target" --output SOURCE,FSTYPE)
+read -r current_source current_fstype <<<"$current"
+if [[ "$current_source" != "$expected_source" || ( "$current_fstype" != nfs && "$current_fstype" != nfs4 ) ]]; then
+  echo "refusing backup: unexpected backup mount" >&2
+  exit 65
+fi
+
+/usr/bin/dpkg-query --show >"$state_dir/package-inventory.txt"
+/usr/bin/crontab -l >"$state_dir/root.crontab" 2>/dev/null || :
+
+paths=(
+{% for path in host_config_backup_common_paths + host_config_backup_extra_paths %}
+  {{ path | quote }}
+{% endfor %}
+  "$state_dir/package-inventory.txt"
+  "$state_dir/root.crontab"
+)
+existing=()
+for candidate in "${paths[@]}"; do
+  [[ -e "$candidate" ]] && existing+=("$candidate")
+done
+
+if [[ ! -f "$repository/config" ]]; then
+  /usr/bin/restic init
+fi
+
+/usr/bin/restic backup \
+  --one-file-system \
+  --tag homelab-config \
+  --host {{ inventory_hostname | quote }} \
+  --exclude /docker \
+  --exclude /mnt/nas \
+  --exclude /var/lib/docker \
+  --exclude /var/lib/otbr-watchdog/state \
+  --exclude-caches \
+  "${existing[@]}"
+/usr/bin/restic check
+/usr/bin/restic snapshots --latest 1
+/usr/bin/date --iso-8601=seconds >"$state_dir/last-check-ok"
+
+{% if homelab_allow_backup_forget | bool %}
+/usr/bin/restic forget \
+  --keep-daily {{ restic_keep_daily }} \
+  --keep-weekly {{ restic_keep_weekly }} \
+  --keep-monthly {{ restic_keep_monthly }}
+{% endif %}

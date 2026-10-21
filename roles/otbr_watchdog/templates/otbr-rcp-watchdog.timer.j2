@@ -1,0 +1,12 @@
+# Ansible-managed by homelab-fleet. Do not edit.
+[Unit]
+Description=Run OTBR RCP watchdog every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=15s
+Unit=otbr-rcp-watchdog.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,12 @@
+# Ansible-managed by homelab-fleet. Do not edit.
+[Unit]
+Description=Staggered encrypted host configuration backup
+
+[Timer]
+OnCalendar={{ backup_timer_on_calendar }}
+RandomizedDelaySec={{ backup_timer_randomized_delay_sec }}
+Persistent=true
+Unit=homelab-config-backup.service
+
+[Install]
+WantedBy=timers.target

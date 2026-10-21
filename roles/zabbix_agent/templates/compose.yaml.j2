@@ -1,0 +1,50 @@
+# Pi agents only. controller host uses its separately reviewed canonical monitoring Compose file.
+services:
+  {{ zabbix_agent_service_name }}:
+    image: {{ (zabbix_agent_image ~ '@' ~ zabbix_agent_image_digest) | to_json }}
+    pull_policy: never
+    labels:
+      io.homelab.zabbix-agent.config-sha256: {{ zabbix_agent_config_fingerprint | to_json }}
+    platform: {{ ('linux/' ~ zabbix_agent_architecture) | to_json }}
+    container_name: {{ zabbix_agent_container_name | to_json }}
+    networks:
+      - {{ zabbix_agent_overlay_network | to_json }}
+    user: {{ (zabbix_agent_runtime_uid | string ~ ':' ~ zabbix_agent_runtime_gid | string) | to_json }}
+    restart: unless-stopped
+    read_only: true
+    entrypoint: [/usr/sbin/zabbix_agent2]
+    command: [-f, -c, /etc/zabbix/zabbix_agent2.conf]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16m,uid=1997,gid=1995,mode=0700
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    env_file:
+      - {{ (zabbix_agent_compose_dir ~ '/zabbix-agent.env') | to_json }}
+    volumes:
+      - type: bind
+        source: {{ (zabbix_agent_compose_dir ~ '/zabbix_agent2.conf') | to_json }}
+        target: /etc/zabbix/zabbix_agent2.conf
+        read_only: true
+        bind:
+          create_host_path: false
+{% if zabbix_agent_transport_mode == 'psk' %}
+      - type: bind
+        source: {{ zabbix_agent_psk_file | to_json }}
+        target: {{ zabbix_agent_psk_container_file | to_json }}
+        read_only: true
+        bind:
+          create_host_path: false
+{% endif %}
+{% for anchor in zabbix_agent_filesystem_anchors %}
+      - type: bind
+        source: {{ anchor.source | to_json }}
+        target: {{ ('/var/lib/zabbix/fs/' ~ anchor.alias) | to_json }}
+        read_only: true
+        bind:
+          create_host_path: false
+{% endfor %}
+networks:
+  {{ zabbix_agent_overlay_network }}:
+    external: true
+    name: {{ zabbix_agent_overlay_network | to_json }}

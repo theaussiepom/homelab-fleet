@@ -1,0 +1,15 @@
+# Ansible-managed by homelab-fleet. Credentials are supplied by Ansible Vault.
+[Daemon]
+
+[Commands]
+shutdown = /usr/bin/sudo /sbin/shutdown -h now 'shutdown rqst via MQTT'
+reboot = /usr/bin/sudo /sbin/shutdown -r now 'reboot rqst via MQTT'
+restart_service = /usr/bin/sudo systemctl restart isp-rpi-reporter.service
+
+[MQTT]
+hostname = {{ mqtt_broker_host }}
+base_topic = {{ telemetry_base_topic }}
+sensor_name = {{ telemetry_sensor_name }}
+client_id = {{ telemetry_mqtt_client_id }}
+username = {{ vault_mqtt_username }}
+password = {{ vault_mqtt_password }}

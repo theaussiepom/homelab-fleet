@@ -1,0 +1,126 @@
+---
+- name: Validate unique telemetry identity inputs
+  ansible.builtin.assert:
+    that:
+      - telemetry_base_topic | length > 0
+      - telemetry_sensor_name | length > 0
+      - telemetry_mqtt_client_id | length > 0
+    quiet: true
+
+- name: Inspect canonical reporter script
+  ansible.builtin.stat:
+    path: "{{ telemetry_reporter_path }}/ISP-RPi-mqtt-daemon.py"
+    checksum_algorithm: sha256
+  register: pi_telemetry_script
+
+- name: Detect the bounded stable-client identity patch
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/grep
+      - --fixed-strings
+      - --quiet
+      - homelab_mqtt_client_id
+      - "{{ telemetry_reporter_path }}/ISP-RPi-mqtt-daemon.py"
+  register: pi_telemetry_client_patch
+  changed_when: false
+  failed_when: false
+  when: pi_telemetry_script.stat.exists
+
+- name: Install reporter prerequisites for a new Pi
+  ansible.builtin.apt:
+    name:
+      - git
+      - python3
+      - python3-paho-mqtt
+    state: present
+    update_cache: false
+  when: not pi_telemetry_script.stat.exists
+
+- name: Install pinned canonical reporter for a new Pi
+  ansible.builtin.git:
+    repo: "{{ telemetry_reporter_repository }}"
+    dest: "{{ telemetry_reporter_path }}"
+    version: "{{ telemetry_reporter_revision }}"
+    update: false
+  when: not pi_telemetry_script.stat.exists
+
+- name: Refuse to replace a different existing reporter implementation
+  ansible.builtin.assert:
+    that:
+      - >-
+        not pi_telemetry_script.stat.exists or
+        pi_telemetry_script.stat.checksum == pi_telemetry_reporter_script_sha256 or
+        pi_telemetry_client_patch.rc == 0
+    fail_msg: >-
+      Existing reporter script differs from both discovered canonical installs;
+      inspect it manually instead of overwriting a working telemetry service.
+
+- name: Add stable inventory-derived MQTT client identity to the existing reporter
+  ansible.builtin.lineinfile:
+    path: "{{ telemetry_reporter_path }}/ISP-RPi-mqtt-daemon.py"
+    insertafter: "^sensor_name = config\\['MQTT'\\]"
+    line: >-
+      homelab_mqtt_client_id = config['MQTT'].get('client_id',
+      'homelab-' + sensor_name).lower()  # Ansible-managed stable client identity
+    backup: true
+  notify: Conditionally restart Pi telemetry
+
+- name: Make the existing reporter use its stable MQTT client identity
+  ansible.builtin.replace:
+    path: "{{ telemetry_reporter_path }}/ISP-RPi-mqtt-daemon.py"
+    regexp: '^mqtt_client = mqtt\.Client\(\)$'
+    replace: >-
+      mqtt_client = mqtt.Client(client_id=homelab_mqtt_client_id)
+      # Ansible-managed stable client identity
+    backup: true
+  notify: Conditionally restart Pi telemetry
+
+- name: Note missing telemetry vault values during check mode
+  ansible.builtin.debug:
+    msg: >-
+      MQTT credentials are unavailable; check mode will preserve the existing
+      root-readable reporter config and will not render secret placeholders.
+  when: vault_mqtt_username is not defined or vault_mqtt_password is not defined
+
+- name: Require MQTT credentials for live telemetry configuration
+  ansible.builtin.assert:
+    that:
+      - vault_mqtt_username is defined
+      - vault_mqtt_password is defined
+      - vault_mqtt_username != 'CHANGE_ME'
+      - vault_mqtt_password != 'CHANGE_ME'
+    fail_msg: Define encrypted vault_mqtt_username and vault_mqtt_password before live apply.
+  when: not ansible_check_mode
+  no_log: true
+
+- name: Install root-readable reporter configuration
+  ansible.builtin.template:
+    src: config.ini.j2
+    dest: "{{ telemetry_reporter_path }}/config.ini"
+    owner: root
+    group: "{{ telemetry_reporter_group }}"
+    mode: "0640"
+    backup: true
+  no_log: true
+  when:
+    - vault_mqtt_username is defined
+    - vault_mqtt_password is defined
+  notify: Conditionally restart Pi telemetry
+
+- name: Install reporter systemd unit
+  ansible.builtin.template:
+    src: isp-rpi-reporter.service.j2
+    dest: /etc/systemd/system/isp-rpi-reporter.service
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  notify:
+    - Reload systemd for Pi telemetry
+    - Conditionally restart Pi telemetry
+
+- name: Enable reporter without forcing a start
+  ansible.builtin.systemd_service:
+    name: isp-rpi-reporter.service
+    enabled: true
+    daemon_reload: true

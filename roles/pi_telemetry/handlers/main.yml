@@ -1,0 +1,10 @@
+---
+- name: Reload systemd for Pi telemetry
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Conditionally restart Pi telemetry
+  ansible.builtin.systemd_service:
+    name: isp-rpi-reporter.service
+    state: restarted
+  when: homelab_allow_service_restart | bool

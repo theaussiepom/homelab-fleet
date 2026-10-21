@@ -1,0 +1,27 @@
+---
+- name: Enrol and admit one declared Raspberry Pi
+  hosts: "{{ target_host | default('none') }}"
+  gather_facts: true
+  become: true
+  pre_tasks:
+    - name: Restrict enrolment to a single inventory Pi
+      ansible.builtin.assert:
+        that:
+          - ansible_play_hosts_all | length == 1
+          - inventory_hostname in groups['raspberry_pis']
+        quiet: true
+  roles:
+    - role: fleet_identity
+      tags: [fleet_identity]
+    - role: nfs_docker
+      tags: [nfs_docker]
+    - role: code_tunnel
+      tags: [code_tunnel]
+    - role: pi_telemetry
+      tags: [pi_telemetry]
+    - role: host_config_backup
+      tags: [host_config_backup]
+    - role: observer_access
+      tags: [observer_access]
+    - role: observer_probe_agent
+      tags: [observer_probe_agent]

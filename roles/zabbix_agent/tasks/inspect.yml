@@ -1,0 +1,256 @@
+---
+- name: Require an explicitly confirmed current installation baseline
+  ansible.builtin.assert:
+    that:
+      - zabbix_agent_runtime_baseline_confirmed
+    quiet: true
+    fail_msg: Complete fresh host/image/Compose discovery and approval before preparing host files.
+
+- name: Inspect the existing Pi Swarm identity without changing membership
+  ansible.builtin.command:
+    argv:
+      - "{{ zabbix_agent_docker_binary }}"
+      - info
+      - --format
+      - "{% raw %}{{.Swarm.LocalNodeState}}|{{.Swarm.NodeID}}{% endraw %}"
+  register: zabbix_agent_swarm_observed
+  changed_when: false
+  check_mode: false
+  when: not zabbix_agent_existing_project
+
+- name: Require the reviewed existing Pi Swarm node
+  ansible.builtin.assert:
+    that:
+      - zabbix_agent_swarm_observed.stdout == 'active|' ~ zabbix_agent_swarm_node_id
+    quiet: true
+    fail_msg: Swarm node identity changed; this role never joins or reconfigures Swarm.
+  when: not zabbix_agent_existing_project
+
+- name: Inspect the existing external overlay without creating a network
+  ansible.builtin.command:
+    argv:
+      - "{{ zabbix_agent_docker_binary }}"
+      - network
+      - inspect
+      - "{{ zabbix_agent_overlay_network }}"
+      - --format
+      - "{% raw %}{{.Name}}|{{.Id}}|{{.Driver}}|{{.Scope}}|{{.Attachable}}{% endraw %}"
+  register: zabbix_agent_overlay_observed
+  environment:
+    LC_ALL: C
+  changed_when: false
+  failed_when: >-
+    zabbix_agent_overlay_observed.rc != 0 and not
+    (zabbix_agent_overlay_absence_manager_verified and
+     zabbix_agent_overlay_observed.rc == 1 and
+     zabbix_agent_overlay_observed.stdout | trim == '' and
+     zabbix_agent_overlay_observed.stderr | trim ==
+     'Error response from daemon: network underground not found')
+  check_mode: false
+  when: not zabbix_agent_existing_project
+
+- name: Require the reviewed attachable overlay with no implicit network creation
+  ansible.builtin.assert:
+    that:
+      - >-
+        (zabbix_agent_overlay_observed.rc == 0 and
+         zabbix_agent_overlay_observed.stdout ==
+         zabbix_agent_overlay_network ~ '|' ~ zabbix_agent_overlay_network_id ~ '|overlay|swarm|true')
+        or (zabbix_agent_overlay_absence_manager_verified and
+            zabbix_agent_overlay_observed.rc == 1 and
+            zabbix_agent_overlay_observed.stdout | trim == '' and
+            zabbix_agent_overlay_observed.stderr | trim ==
+            'Error response from daemon: network underground not found')
+    quiet: true
+    fail_msg: Overlay is unavailable or changed; stop without creating or altering any network.
+  when: not zabbix_agent_existing_project
+
+- name: Inspect the existing canonical controller host source
+  ansible.builtin.stat:
+    path: "{{ zabbix_agent_canonical_compose }}"
+    follow: false
+    checksum_algorithm: sha256
+    get_mime: false
+  register: zabbix_agent_canonical_stat
+  when: zabbix_agent_existing_project
+
+- name: Refuse canonical source drift or a substituted source
+  ansible.builtin.assert:
+    that:
+      - zabbix_agent_canonical_stat.stat.exists
+      - zabbix_agent_canonical_stat.stat.isreg
+      - not zabbix_agent_canonical_stat.stat.islnk
+      - zabbix_agent_canonical_stat.stat.checksum == zabbix_agent_canonical_sha256
+    quiet: true
+    fail_msg: >-
+      Canonical monitoring Compose does not match the approved post-integration checksum;
+      stop for a new reviewed source/runtime baseline.
+  when: zabbix_agent_existing_project
+
+- name: Inspect only immutable image identity architecture and configured user
+  ansible.builtin.command:
+    argv:
+      - "{{ zabbix_agent_docker_binary }}"
+      - image
+      - inspect
+      - >-
+        {{ zabbix_agent_image ~ '@' ~ zabbix_agent_image_digest
+           if zabbix_agent_image_digest | length > 0 else zabbix_agent_image }}
+      - --format
+      - "{% raw %}{{.Id}}|{{.Architecture}}|{{.Config.User}}{% endraw %}"
+  register: zabbix_agent_image_observed
+  changed_when: false
+  check_mode: false
+
+- name: Verify the installed image matches its approved discovery record
+  ansible.builtin.assert:
+    that:
+      - >-
+        zabbix_agent_image_observed.stdout ==
+        zabbix_agent_expected_image_id ~ '|' ~ zabbix_agent_architecture ~ '|' ~ zabbix_agent_verified_image_user
+    quiet: true
+    fail_msg: The exact image must already be present and verified; this role never pulls or substitutes an image.
+
+- name: Inspect only agent container identity and Compose ownership
+  ansible.builtin.command:
+    argv:
+      - "{{ zabbix_agent_docker_binary }}"
+      - container
+      - inspect
+      - "{{ zabbix_agent_container_name }}"
+      - --format
+      - >-
+        {{ ['{{.Id}}|{{.Image}}|',
+            '{{index .Config.Labels "com.docker.compose.project"}}|',
+            '{{index .Config.Labels "com.docker.compose.service"}}|',
+            '{{.State.Status}}'] | join('') }}
+  environment:
+    LC_ALL: C
+  register: zabbix_agent_container_observed
+  changed_when: false
+  failed_when: >-
+    zabbix_agent_container_observed.rc != 0 and
+    'No such container' not in zabbix_agent_container_observed.stderr
+  check_mode: false
+
+- name: Refuse a second agent or any changed existing identity
+  ansible.builtin.assert:
+    that:
+      - not zabbix_agent_existing_project or zabbix_agent_container_observed.rc == 0
+      - >-
+        (zabbix_agent_container_observed.rc != 0 and zabbix_agent_expected_container_id == '') or
+        (zabbix_agent_container_observed.rc == 0 and
+        zabbix_agent_container_observed.stdout.split('|')[0:4] ==
+        [zabbix_agent_expected_container_id, zabbix_agent_expected_container_image_id,
+         zabbix_agent_project_name, zabbix_agent_service_name])
+    quiet: true
+    fail_msg: Existing agent/project identity differs from reviewed discovery; no adoption or replacement is automatic.
+
+- name: Inspect external PSK file metadata only
+  ansible.builtin.stat:
+    path: "{{ zabbix_agent_psk_file }}"
+    follow: false
+    get_checksum: false
+    get_mime: false
+    get_attributes: false
+  register: zabbix_agent_psk_stat
+  no_log: true
+  when: zabbix_agent_transport_mode == 'psk'
+
+- name: Require the externally provisioned owner-readable PSK for real installation
+  ansible.builtin.assert:
+    that:
+      - zabbix_agent_psk_stat.stat.exists
+      - zabbix_agent_psk_stat.stat.isreg
+      - not zabbix_agent_psk_stat.stat.islnk
+      - zabbix_agent_psk_stat.stat.uid == zabbix_agent_runtime_uid
+      - zabbix_agent_psk_stat.stat.mode == '0400'
+      - zabbix_agent_psk_stat.stat.size >= 32
+      - zabbix_agent_psk_stat.stat.size <= 1025
+    quiet: true
+  no_log: true
+  when:
+    - zabbix_agent_transport_mode == 'psk'
+    - not ansible_check_mode
+
+- name: Explain PSK check-mode boundary
+  ansible.builtin.debug:
+    msg: Check mode does not provision or read PSK bytes; real installation requires verified external file metadata.
+  when:
+    - zabbix_agent_transport_mode == 'psk'
+    - ansible_check_mode
+
+- name: Inspect narrow filesystem anchor metadata
+  ansible.builtin.stat:
+    path: "{{ item.source }}"
+    follow: false
+    get_checksum: false
+    get_mime: false
+  loop: "{{ zabbix_agent_filesystem_anchors }}"
+  loop_control:
+    label: "{{ item.alias }}"
+  register: zabbix_agent_anchor_stat
+
+- name: Require root-owned empty regular file anchors rather than mounting host directories
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+      - item.stat.isreg
+      - not item.stat.islnk
+      - item.stat.size == 0
+      - item.stat.nlink == 1
+      - item.stat.uid == 0
+    quiet: true
+  loop: "{{ zabbix_agent_anchor_stat.results }}"
+  loop_control:
+    label: "{{ item.item.alias }}"
+
+- name: Inspect anchor parent ownership without listing files
+  ansible.builtin.stat:
+    path: "{{ item.source | dirname }}"
+    follow: false
+    get_checksum: false
+    get_mime: false
+  loop: "{{ zabbix_agent_filesystem_anchors }}"
+  loop_control:
+    label: "{{ item.alias }}"
+  register: zabbix_agent_anchor_parents
+
+- name: Refuse anchors in mutable or symlinked parent directories
+  ansible.builtin.assert:
+    that:
+      - item.stat.isdir
+      - not item.stat.islnk
+      - item.stat.uid == 0
+      - item.stat.mode in ['0700', '0755']
+    quiet: true
+  loop: "{{ zabbix_agent_anchor_parents.results }}"
+  loop_control:
+    label: "{{ item.item.alias }}"
+
+- name: Verify exact backing filesystem without reading files
+  ansible.builtin.command:
+    argv:
+      - "{{ zabbix_agent_findmnt_binary }}"
+      - --noheadings
+      - --raw
+      - --output
+      - TARGET,FSTYPE
+      - --target
+      - "{{ item.source }}"
+  loop: "{{ zabbix_agent_filesystem_anchors }}"
+  loop_control:
+    label: "{{ item.alias }}"
+  register: zabbix_agent_anchor_mounts
+  changed_when: false
+  check_mode: false
+
+- name: Refuse absent or changed NFS mounts and misleading parent filesystem readings
+  ansible.builtin.assert:
+    that:
+      - item.stdout.split() == [item.item.expected_mount, item.item.expected_fstype]
+    quiet: true
+    fail_msg: Anchor backing mount changed or is absent; do not report local parent capacity as NAS capacity.
+  loop: "{{ zabbix_agent_anchor_mounts.results }}"
+  loop_control:
+    label: "{{ item.item.alias }}"

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+observer_command=${HOMELAB_OBSERVER_BIN:-/opt/homelab-observer/venv/bin/homelab-observer}
+export HOMELAB_OBSERVER_CONFIG=${HOMELAB_OBSERVER_CONFIG:-/etc/homelab-observer/runtime.json}
+
+if [[ ! -x "$observer_command" ]]; then
+  echo "observer CLI is not installed: $observer_command" >&2
+  exit 69
+fi
+
+exec "$observer_command" collect-incident "$@"

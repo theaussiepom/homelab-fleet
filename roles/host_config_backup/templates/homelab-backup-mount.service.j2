@@ -1,0 +1,13 @@
+# Ansible-managed by homelab-fleet. Do not edit.
+[Unit]
+Description=Mount NAS rebuild-copy target for encrypted host configuration backup
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/libexec/homelab-nfs-ensure {{ backup_nfs_source }} {{ backup_mount_target }} {{ nfs_mount_options }}
+
+[Install]
+WantedBy=multi-user.target

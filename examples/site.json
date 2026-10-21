@@ -1,0 +1,245 @@
+{
+  "schema_version": 1,
+  "site": {
+    "id": "example-lab",
+    "environment": "synthetic",
+    "node": "pve-lab",
+    "api_endpoint": "https://pve-lab.example.invalid:8006/",
+    "ssh_public_keys": [],
+    "bootstrap_user": "example-admin"
+  },
+  "policy": {
+    "preserve_existing_uid_gid": true,
+    "create_stopped": true,
+    "public_runner_production_access": false,
+    "native_lifecycle_owns_power": true
+  },
+  "hardware": {
+    "disk_by_id": "/dev/disk/by-id/example-disk",
+    "disk_serial": "EXAMPLE-SERIAL",
+    "disk_size_bytes": 1073741824000,
+    "management_mac": "02:aa:00:00:00:01",
+    "spare_mac": "02:aa:00:00:00:02",
+    "firmware": "uefi",
+    "smart_observation": "synthetic://fixture",
+    "fqdn": "pve-lab.example.invalid",
+    "installer_cidr": "198.18.25.2/24",
+    "installer_gateway": "198.18.25.1",
+    "installer_dns": [
+      "198.18.25.53"
+    ],
+    "installer_mac": "02:aa:00:00:00:02",
+    "final_tagged_network_qualified": false
+  },
+  "foundation": {
+    "bridge_name": "vmbr0",
+    "bridge_ports": [
+      "example0"
+    ],
+    "mtu": 1500,
+    "storage_id": "example-zfs",
+    "zfs_pool": "example-pool/data",
+    "existing_objects_adopted": false
+  },
+  "backend": {
+    "kind": "synthetic_local",
+    "qualified": false,
+    "global_lock_qualified": false,
+    "encrypted_history_qualified": false,
+    "external_recovery_qualified": false
+  },
+  "states": [
+    "foundation",
+    "critical",
+    "application_guests",
+    "security_VM"
+  ],
+  "guests": [],
+  "fleet": [
+    {
+      "key": "pi1",
+      "host": "198.18.25.80",
+      "ssh_alias": "example-pi1",
+      "ansible_user": "example-admin",
+      "observed_bootstrap_user": "example-admin",
+      "retained_services": [
+        "threadlens",
+        "matter-server",
+        "otbr",
+        "dns",
+        "ntp"
+      ],
+      "local_state_qualified": false,
+      "network_admitted": false,
+      "identity_changes_allowed": false
+    },
+    {
+      "key": "pi2",
+      "host": "198.18.25.81",
+      "ssh_alias": "example-pi2",
+      "ansible_user": "example-admin",
+      "observed_bootstrap_user": "example-admin",
+      "retained_services": [
+        "zigbee2mqtt",
+        "zwave-js-ui"
+      ],
+      "local_state_qualified": false,
+      "network_admitted": false,
+      "identity_changes_allowed": false
+    },
+    {
+      "key": "pi3",
+      "host": "198.18.25.82",
+      "ssh_alias": "example-pi3",
+      "ansible_user": "example-admin",
+      "observed_bootstrap_user": "example-admin",
+      "retained_services": [
+        "otbr",
+        "threadlens-agent"
+      ],
+      "local_state_qualified": false,
+      "network_admitted": false,
+      "identity_changes_allowed": false
+    }
+  ],
+  "gates": [
+    {
+      "id": "I01",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I01",
+      "requirement": "Bind scoped production evidence for I01 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I02",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I02",
+      "requirement": "Bind scoped production evidence for I02 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I03",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I03",
+      "requirement": "Bind scoped production evidence for I03 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I04",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I04",
+      "requirement": "Bind scoped production evidence for I04 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I05",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I05",
+      "requirement": "Bind scoped production evidence for I05 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I06",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I06",
+      "requirement": "Bind scoped production evidence for I06 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I07",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I07",
+      "requirement": "Bind scoped production evidence for I07 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I08",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I08",
+      "requirement": "Bind scoped production evidence for I08 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I09",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I09",
+      "requirement": "Bind scoped production evidence for I09 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I10",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I10",
+      "requirement": "Bind scoped production evidence for I10 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I11",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I11",
+      "requirement": "Bind scoped production evidence for I11 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I12",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I12",
+      "requirement": "Bind scoped production evidence for I12 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I13",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I13",
+      "requirement": "Bind scoped production evidence for I13 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I14",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I14",
+      "requirement": "Bind scoped production evidence for I14 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I15",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I15",
+      "requirement": "Bind scoped production evidence for I15 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I16",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I16",
+      "requirement": "Bind scoped production evidence for I16 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I17",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I17",
+      "requirement": "Bind scoped production evidence for I17 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I18",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I18",
+      "requirement": "Bind scoped production evidence for I18 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I19",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I19",
+      "requirement": "Bind scoped production evidence for I19 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I20",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I20",
+      "requirement": "Bind scoped production evidence for I20 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I21",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I21",
+      "requirement": "Bind scoped production evidence for I21 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I22",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I22",
+      "requirement": "Bind scoped production evidence for I22 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I23",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I23",
+      "requirement": "Bind scoped production evidence for I23 before its affected operation; this record is synthetic."
+    }
+  ]
+}

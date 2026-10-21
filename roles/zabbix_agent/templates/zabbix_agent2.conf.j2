@@ -1,0 +1,29 @@
+# Direct binary config: no stock entrypoint rewrite and no arbitrary command keys.
+LogType=console
+DebugLevel=3
+PidFile=/tmp/zabbix_agent2.pid
+ControlSocket=/tmp/zabbix_agent2.sock
+PluginSocket=/tmp/zabbix_agent2.plugin.sock
+Hostname={{ zabbix_agent_hostname }}
+ServerActive={{ zabbix_agent_server_active }}
+ListenIP=127.0.0.1
+Timeout=3
+TLSConnect={{ zabbix_agent_transport_mode }}
+TLSAccept={{ zabbix_agent_passive_tls_accept }}
+{% if zabbix_agent_transport_mode == 'psk' %}
+TLSPSKIdentity={{ zabbix_agent_psk_identity }}
+TLSPSKFile={{ zabbix_agent_psk_container_file }}
+{% endif %}
+AllowKey=agent.ping
+AllowKey=agent.version
+AllowKey=agent.hostname
+AllowKey=system.cpu.num
+AllowKey=system.cpu.num[*]
+AllowKey=system.cpu.load[*]
+AllowKey=system.cpu.util[*]
+AllowKey=vm.memory.size[*]
+{% for anchor in zabbix_agent_filesystem_anchors %}
+AllowKey=vfs.fs.size[/var/lib/zabbix/fs/{{ anchor.alias }},*]
+AllowKey=vfs.fs.inode[/var/lib/zabbix/fs/{{ anchor.alias }},*]
+{% endfor %}
+DenyKey=*

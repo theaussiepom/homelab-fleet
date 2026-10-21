@@ -1,0 +1,75 @@
+---
+- name: Provision only the approved empty Pi root filesystem anchor
+  hosts: zabbix_pi_agents
+  become: true
+  gather_facts: false
+  serial: 1
+  any_errors_fatal: true
+  tasks:
+    - name: Require the explicit current three-Pi installation approval
+      ansible.builtin.assert:
+        that:
+          - zabbix_agent_root_anchor_approved | default(false) | bool
+          - inventory_hostname in ['Pironman', 'ZigbeePi', 'LoungeOTBR']
+        quiet: true
+
+    - name: Inspect root directory metadata
+      ansible.builtin.stat:
+        path: /
+        follow: false
+        get_checksum: false
+        get_mime: false
+      register: root_anchor_parent
+
+    - name: Verify the protected root directory
+      ansible.builtin.assert:
+        that:
+          - root_anchor_parent.stat.isdir
+          - not root_anchor_parent.stat.islnk
+          - root_anchor_parent.stat.uid == 0
+          - root_anchor_parent.stat.mode in ['0700', '0755']
+        quiet: true
+
+    - name: Inspect root filesystem identity
+      ansible.builtin.command:
+        argv: [/usr/bin/findmnt, --noheadings, --raw, --output, 'TARGET,FSTYPE', --target, /]
+      register: root_anchor_mount
+      changed_when: false
+      check_mode: false
+
+    - name: Require the observed ext4 root filesystem
+      ansible.builtin.assert:
+        that:
+          - root_anchor_mount.stdout.split() == ['/', 'ext4']
+        quiet: true
+
+    - name: Inspect the exact empty anchor path without following links
+      ansible.builtin.stat:
+        path: /.homelab-zabbix-rootfs.anchor
+        follow: false
+        get_checksum: false
+        get_mime: false
+      register: root_anchor_before
+
+    - name: Refuse an existing path with different metadata
+      ansible.builtin.assert:
+        that:
+          - root_anchor_before.stat.isreg
+          - not root_anchor_before.stat.islnk
+          - root_anchor_before.stat.uid == 0
+          - root_anchor_before.stat.gid == 0
+          - root_anchor_before.stat.mode == '0444'
+          - root_anchor_before.stat.size == 0
+          - root_anchor_before.stat.nlink == 1
+        quiet: true
+      when: root_anchor_before.stat.exists
+
+    - name: Create only the approved empty anchor when absent
+      ansible.builtin.copy:
+        dest: /.homelab-zabbix-rootfs.anchor
+        content: ''
+        owner: root
+        group: root
+        mode: '0444'
+        force: false
+      when: not root_anchor_before.stat.exists

@@ -1,0 +1,4 @@
+# Copy to .codex/config.toml only after the private tunnel is established.
+[mcp_servers.homelab_fleet]
+url = "http://127.0.0.1:8765/mcp"
+bearer_token_env_var = "HOMELAB_MCP_BEARER_TOKEN"

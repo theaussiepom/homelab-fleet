@@ -1,0 +1,11 @@
+# Ansible-managed by homelab-fleet. Do not edit.
+[Unit]
+After=network-online.target nfs-nas.service{% for unit in nfs_prerequisite_units %} {{ unit }}{% endfor %}
+
+Wants=network-online.target
+Requires=nfs-nas.service{% for unit in nfs_prerequisite_units %} {{ unit }}{% endfor %}
+
+[Service]
+{% for mount in nfs_boot_mounts %}
+ExecStartPre=/usr/local/libexec/homelab-nfs-ensure --check-only {{ mount.source }} {{ mount.target }} {{ nfs_mount_options }}
+{% endfor %}

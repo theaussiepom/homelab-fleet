@@ -1,0 +1,53 @@
+---
+- name: Enforce fleet admission when included directly
+  ansible.builtin.import_role:
+    name: fleet_admission
+
+- name: Restrict new profile filenames and pin exact source bytes
+  ansible.builtin.assert:
+    that:
+      - item.filename is match('^homelab-[a-z0-9-]+\.nmconnection$')
+      - item.sha256 is match('^[0-9a-f]{64}$')
+      - item.native_parser_receipt | length > 0
+  loop: "{{ fleet_network_profiles }}"
+
+- name: Capture immutable reviewed profile bytes
+  ansible.builtin.slurp:
+    src: "{{ item.source }}"
+  delegate_to: localhost
+  become: false
+  loop: "{{ fleet_network_profiles }}"
+  register: fleet_frozen_profiles
+  no_log: true
+
+- name: Require matching hash and disabled autoconnect
+  ansible.builtin.assert:
+    that:
+      - item.content | b64decode | hash('sha256') == item.item.sha256
+      - "'autoconnect=false' in (item.content | b64decode)"
+  loop: "{{ fleet_frozen_profiles.results }}"
+  no_log: true
+
+- name: Inspect proposed destinations before creating new disabled profiles
+  ansible.builtin.stat:
+    path: "/etc/NetworkManager/system-connections/{{ item.filename }}"
+    checksum_algorithm: sha256
+  loop: "{{ fleet_network_profiles }}"
+  register: fleet_existing_profiles
+
+- name: Preserve unexpected existing profile edits
+  ansible.builtin.assert:
+    that:
+      - not item.stat.exists or item.stat.checksum == item.item.sha256
+  loop: "{{ fleet_existing_profiles.results }}"
+  no_log: true
+
+- name: Stage exact disabled profiles without reloading or activating networking
+  ansible.builtin.copy:
+    content: "{{ item.content | b64decode }}"
+    dest: "/etc/NetworkManager/system-connections/{{ item.item.filename }}"
+    mode: "0600"
+    backup: true
+  loop: "{{ fleet_frozen_profiles.results }}"
+  no_log: true
+  diff: false

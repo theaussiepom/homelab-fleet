@@ -1,0 +1,79 @@
+---
+- name: Read-only fleet discovery
+  hosts: managed_hosts
+  gather_facts: true
+  become: false
+  tasks:
+    - name: Read current NFS mounts
+      ansible.builtin.command:
+        argv: [/usr/bin/findmnt, --raw, --noheadings, --types, "nfs,nfs4", --output, "SOURCE,TARGET,FSTYPE"]
+      register: discovery_nfs
+      changed_when: false
+      failed_when: false
+
+    - name: Read bounded managed service state
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/systemctl
+          - show
+          - --no-pager
+          - --property=Id,ActiveState,SubState,UnitFileState,NRestarts
+          - nfs-nas.service
+          - docker.service
+          - code-tunnel.service
+          - isp-rpi-reporter.service
+          - otbr-rcp-watchdog.timer
+      register: discovery_services
+      changed_when: false
+      failed_when: false
+
+    - name: Read Code Tunnel version
+      ansible.builtin.command:
+        argv: [/usr/local/bin/code, --version]
+      register: discovery_code_version
+      changed_when: false
+      failed_when: false
+
+    - name: Read bounded Docker inventory with known privilege fallback
+      ansible.builtin.shell: >-
+        set -o pipefail;
+        docker ps -a
+        --format '{{ '{{' }}.Names{{ '}}' }}|{{ '{{' }}.Image{{ '}}' }}|{{ '{{' }}.Status{{ '}}' }}'
+        2>/dev/null ||
+        sudo -n docker ps -a
+        --format '{{ '{{' }}.Names{{ '}}' }}|{{ '{{' }}.Image{{ '}}' }}|{{ '{{' }}.Status{{ '}}' }}'
+      args:
+        executable: /bin/bash
+      register: discovery_containers
+      changed_when: false
+      failed_when: false
+
+    - name: Capture Australia Sydney report timestamp
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/env
+          - python3
+          - -c
+          - >-
+            from datetime import datetime; from zoneinfo import ZoneInfo;
+            print(datetime.now(ZoneInfo('Australia/Sydney')).isoformat(timespec='seconds'))
+      register: discovery_timestamp
+      changed_when: false
+      delegate_to: localhost
+      when: inventory_hostname == ansible_play_hosts_all[0]
+
+    - name: Write machine-readable current state locally
+      ansible.builtin.template:
+        src: templates/current-state.json.j2
+        dest: "{{ playbook_dir }}/../reports/current-state.json"
+        mode: "0644"
+      delegate_to: localhost
+      when: inventory_hostname == ansible_play_hosts_all[0]
+
+    - name: Write human current state locally
+      ansible.builtin.template:
+        src: templates/current-state.md.j2
+        dest: "{{ playbook_dir }}/../reports/current-state.md"
+        mode: "0644"
+      delegate_to: localhost
+      when: inventory_hostname == ansible_play_hosts_all[0]

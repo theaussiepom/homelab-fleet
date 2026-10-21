@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+: "${HOMELAB_SITE_CATALOG:?Set the private catalog path}"
+: "${HOMELAB_FLEET_INVENTORY:?Set the catalog-generated inventory directory}"
+uv run python "$root_dir/scripts/check-inventory" --skip-secrets \
+  --catalog "$HOMELAB_SITE_CATALOG" --inventory "$HOMELAB_FLEET_INVENTORY" >/dev/null
+
+inventory="$HOMELAB_FLEET_INVENTORY/hosts.yml"
+
+[[ $# -eq 1 ]] || { echo "usage: scripts/enrol-pi INVENTORY_HOST" >&2; exit 64; }
+target_host=$1
+
+uv run ansible-inventory -i "$inventory" --list | uv run python -c '
+import json, sys
+host = sys.argv[1]
+data = json.load(sys.stdin)
+members = set(data.get("raspberry_pis", {}).get("hosts", []))
+if host not in members:
+    raise SystemExit(f"not a declared raspberry_pis member: {host}")
+' "$target_host"
+
+ssh -o BatchMode=yes -o ConnectTimeout=8 "$target_host" true
+
+if [[ "${HOMELAB_APPLY_APPROVED:-}" != "YES" ]]; then
+  echo "Refusing live enrolment without HOMELAB_APPLY_APPROVED=YES." >&2
+  echo "Review bootstrap/admission check-mode diffs and the rollback plan first." >&2
+  exit 77
+fi
+
+uv run ansible-playbook -i "$inventory" "$root_dir/playbooks/bootstrap.yml" \
+  --limit "$target_host" -e "target_host=$target_host"
+uv run ansible-playbook -i "$inventory" "$root_dir/playbooks/enrol-pi.yml" \
+  --limit "$target_host" -e "target_host=$target_host" \
+  -e homelab_allow_service_restart=true
+uv run ansible-playbook -i "$inventory" "$root_dir/playbooks/backup.yml" \
+  --limit "$target_host" -e homelab_backup_execute=true
+uv run ansible-playbook -i "$inventory" "$root_dir/playbooks/verify.yml" --limit "$target_host"
+"$root_dir/scripts/verify-telemetry" "$target_host"
+uv run ansible-playbook -i "$inventory" "$root_dir/playbooks/admission-verify.yml" \
+  --limit "$target_host" -e "target_host=$target_host" \
+  -e telemetry_verification_passed=true

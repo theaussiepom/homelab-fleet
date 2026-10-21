@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Ansible-managed by homelab-fleet. Do not edit.
+set -euo pipefail
+
+usage() {
+  echo "usage: homelab-nfs-ensure [--check-only] SOURCE TARGET OPTIONS" >&2
+  exit 64
+}
+check_only=false
+if [[ "${1:-}" == "--check-only" ]]; then
+  check_only=true
+  shift
+fi
+[[ $# -eq 3 ]] || usage
+expected_source=$1
+target=$2
+options=$3
+[[ "$expected_source" == *:/* && "$target" == /* ]] || usage
+
+# Return 66 only for an absent exact mount; every other failure is unsafe to repair.
+validate_mount() {
+  local current rc current_source current_fstype current_target current_options extra
+  if current=$(/usr/bin/findmnt --kernel --nocanonicalize --noheadings --raw --mountpoint "$target" --output SOURCE,FSTYPE,TARGET,OPTIONS 2>&1); then
+    [[ -n "$current" && "$current" != *$'\n'* ]] || return 65
+    read -r current_source current_fstype current_target current_options extra <<<"$current"
+    [[ -z "$extra" && -n "$current_options" ]] || return 65
+    [[ "$current_source" == "$expected_source" && "$current_target" == "$target" ]] || return 65
+    [[ "$current_fstype" == nfs || "$current_fstype" == nfs4 ]] || return 65
+    if [[ ",$options," == *,rw,* ]]; then
+      [[ ",$current_options," == *,rw,* && ",$current_options," != *,ro,* ]] || return 65
+    fi
+    return 0
+  else
+    rc=$?
+    [[ $rc -eq 1 && -z "$current" ]] || return 65
+    return 66
+  fi
+}
+if validate_mount; then
+  exit 0
+else
+  rc=$?
+fi
+if [[ "$check_only" == true || $rc -ne 66 ]]; then
+  echo "required NFS mount absent, invalid, or inspection failed" >&2
+  exit "$rc"
+fi
+/usr/bin/mkdir -p -- "$target"
+/usr/bin/mount -t nfs -o "$options" "$expected_source" "$target"
+validate_mount

@@ -108,3 +108,38 @@ def test_existing_destination_preserved(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="must be new"):
         project(load_catalog(CATALOG), tmp_path)
     assert marker.read_text() == "preserve"
+
+
+@pytest.mark.parametrize(
+    "name,mode",
+    [
+        (".", 0o755),
+        ("group_vars", 0o750),
+        ("hosts.yml", 0o644),
+        ("projection.json", 0o640),
+        ("host_vars/Controller.yml", 0o660),
+        ("hosts.yml", 0o4600),
+    ],
+)
+def test_projection_permission_changes_refused_before_admission(
+    tmp_path: Path, name: str, mode: int
+) -> None:
+    catalog = load_catalog(CATALOG)
+    output = tmp_path / "inventory"
+    project(catalog, output)
+    target = output / name
+    original = target.stat().st_mode & 0o7777
+    target.chmod(mode)
+    if target.stat().st_mode & 0o7777 != mode:
+        target.chmod(original)
+        pytest.skip("Filesystem did not retain the requested special mode bits")
+    try:
+        with pytest.raises(ValueError, match="permissions"):
+            verify_projection(catalog, output)
+        with pytest.raises(ValueError, match="permissions"):
+            load_inventory_checker().check(
+                catalog_path=CATALOG, inventory_dir=output, include_secret_scan=False
+            )
+        assert target.stat().st_mode & 0o7777 == mode
+    finally:
+        target.chmod(original)

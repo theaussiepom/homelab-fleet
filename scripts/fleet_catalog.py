@@ -6,6 +6,7 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import stat
 import sys
 from typing import Any, cast
 
@@ -134,12 +135,22 @@ def verify_projection(catalog: dict[str, Any], directory: Path) -> dict[str, Any
     expected = materialize(catalog)
     if directory.is_symlink() or not directory.is_dir():
         raise ValueError('inventory directory must be a real directory')
+    if stat.S_IMODE(directory.stat().st_mode) != 0o700:
+        raise ValueError('inventory directory permissions must be 0700')
     observed = set()
     for path in directory.rglob('*'):
-        if path.is_symlink():
+        metadata = path.lstat()
+        if stat.S_ISLNK(metadata.st_mode):
             raise ValueError('inventory symlink refused')
-        if path.is_file():
+        if stat.S_ISDIR(metadata.st_mode):
+            if stat.S_IMODE(metadata.st_mode) != 0o700:
+                raise ValueError('inventory directory permissions must be 0700')
+        elif stat.S_ISREG(metadata.st_mode):
+            if stat.S_IMODE(metadata.st_mode) != 0o600:
+                raise ValueError('inventory file permissions must be 0600')
             observed.add(str(path.relative_to(directory)))
+        else:
+            raise ValueError('inventory entry must be a regular file or directory')
     if observed != set(expected):
         raise ValueError('inventory file set differs from catalog')
     for name, raw in expected.items():

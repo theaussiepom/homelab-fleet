@@ -1,0 +1,781 @@
+{
+  "schema_version": 1,
+  "site": {
+    "id": "example-lab",
+    "environment": "synthetic",
+    "node": "pve-lab",
+    "api_endpoint": "https://pve-lab.example.invalid:8006/",
+    "ssh_public_keys": [],
+    "bootstrap_user": "example-admin"
+  },
+  "policy": {
+    "preserve_existing_uid_gid": true,
+    "create_stopped": true,
+    "public_runner_production_access": false,
+    "native_lifecycle_owns_power": true
+  },
+  "hardware": {
+    "disk_by_id": "/dev/disk/by-id/example-disk",
+    "disk_serial": "EXAMPLE-SERIAL",
+    "disk_size_bytes": 1073741824000,
+    "management_mac": "02:aa:00:00:00:01",
+    "spare_mac": "02:aa:00:00:00:02",
+    "firmware": "uefi",
+    "smart_observation": "synthetic://fixture",
+    "fqdn": "pve-lab.example.invalid",
+    "installer_cidr": "198.18.25.2/24",
+    "installer_gateway": "198.18.25.1",
+    "installer_dns": [
+      "198.18.25.53"
+    ],
+    "installer_mac": "02:aa:00:00:00:02",
+    "final_tagged_network_qualified": false
+  },
+  "foundation": {
+    "bridge_name": "vmbr0",
+    "bridge_ports": [
+      "example0"
+    ],
+    "mtu": 1500,
+    "storage_id": "example-zfs",
+    "zfs_pool": "example-pool/data",
+    "existing_objects_adopted": false
+  },
+  "backend": {
+    "kind": "synthetic_local",
+    "qualified": false,
+    "global_lock_qualified": false,
+    "encrypted_history_qualified": false,
+    "external_recovery_qualified": false
+  },
+  "states": [
+    "foundation",
+    "critical",
+    "application_guests",
+    "security_VM"
+  ],
+  "guests": [],
+  "fleet": [
+    {
+      "key": "pi1",
+      "host": "198.18.25.80",
+      "ssh_alias": "example-pi1",
+      "ansible_user": "example-admin",
+      "observed_bootstrap_user": "example-admin",
+      "retained_services": [
+        "threadlens",
+        "matter-server",
+        "otbr",
+        "dns",
+        "ntp"
+      ],
+      "local_state_qualified": false,
+      "network_admitted": false,
+      "identity_changes_allowed": false
+    },
+    {
+      "key": "pi2",
+      "host": "198.18.25.81",
+      "ssh_alias": "example-pi2",
+      "ansible_user": "example-admin",
+      "observed_bootstrap_user": "example-admin",
+      "retained_services": [
+        "zigbee2mqtt",
+        "zwave-js-ui"
+      ],
+      "local_state_qualified": false,
+      "network_admitted": false,
+      "identity_changes_allowed": false
+    },
+    {
+      "key": "pi3",
+      "host": "198.18.25.82",
+      "ssh_alias": "example-pi3",
+      "ansible_user": "example-admin",
+      "observed_bootstrap_user": "example-admin",
+      "retained_services": [
+        "otbr",
+        "threadlens-agent"
+      ],
+      "local_state_qualified": false,
+      "network_admitted": false,
+      "identity_changes_allowed": false
+    }
+  ],
+  "gates": [
+    {
+      "id": "I01",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I01",
+      "requirement": "Bind scoped production evidence for I01 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I02",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I02",
+      "requirement": "Bind scoped production evidence for I02 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I03",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I03",
+      "requirement": "Bind scoped production evidence for I03 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I04",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I04",
+      "requirement": "Bind scoped production evidence for I04 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I05",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I05",
+      "requirement": "Bind scoped production evidence for I05 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I06",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I06",
+      "requirement": "Bind scoped production evidence for I06 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I07",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I07",
+      "requirement": "Bind scoped production evidence for I07 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I08",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I08",
+      "requirement": "Bind scoped production evidence for I08 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I09",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I09",
+      "requirement": "Bind scoped production evidence for I09 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I10",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I10",
+      "requirement": "Bind scoped production evidence for I10 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I11",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I11",
+      "requirement": "Bind scoped production evidence for I11 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I12",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I12",
+      "requirement": "Bind scoped production evidence for I12 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I13",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I13",
+      "requirement": "Bind scoped production evidence for I13 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I14",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I14",
+      "requirement": "Bind scoped production evidence for I14 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I15",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I15",
+      "requirement": "Bind scoped production evidence for I15 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I16",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I16",
+      "requirement": "Bind scoped production evidence for I16 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I17",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I17",
+      "requirement": "Bind scoped production evidence for I17 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I18",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I18",
+      "requirement": "Bind scoped production evidence for I18 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I19",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I19",
+      "requirement": "Bind scoped production evidence for I19 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I20",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I20",
+      "requirement": "Bind scoped production evidence for I20 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I21",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I21",
+      "requirement": "Bind scoped production evidence for I21 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I22",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I22",
+      "requirement": "Bind scoped production evidence for I22 before its affected operation; this record is synthetic."
+    },
+    {
+      "id": "I23",
+      "status": "synthetic_only",
+      "evidence_ref": "synthetic://I23",
+      "requirement": "Bind scoped production evidence for I23 before its affected operation; this record is synthetic."
+    }
+  ],
+  "fleet_management": {
+    "deployment_admitted": false,
+    "inventory": {
+      "hosts.yml": {
+        "all": {
+          "children": {
+            "managed_hosts": {
+              "hosts": {
+                "Controller": {
+                  "ansible_host": "192.0.2.10"
+                },
+                "PiOne": {
+                  "ansible_host": "192.0.2.11"
+                },
+                "PiTwo": {
+                  "ansible_host": "192.0.2.12"
+                },
+                "PiThree": {
+                  "ansible_host": "192.0.2.13"
+                }
+              }
+            },
+            "docker_hosts": {
+              "hosts": {
+                "Controller": {
+                  "ansible_host": "192.0.2.10"
+                },
+                "PiOne": {
+                  "ansible_host": "192.0.2.11"
+                },
+                "PiTwo": {
+                  "ansible_host": "192.0.2.12"
+                },
+                "PiThree": {
+                  "ansible_host": "192.0.2.13"
+                }
+              }
+            },
+            "raspberry_pis": {
+              "hosts": {
+                "PiOne": {
+                  "ansible_host": "192.0.2.11"
+                },
+                "PiTwo": {
+                  "ansible_host": "192.0.2.12"
+                },
+                "PiThree": {
+                  "ansible_host": "192.0.2.13"
+                }
+              }
+            },
+            "physical_pis": {
+              "hosts": {
+                "PiOne": {
+                  "ansible_host": "192.0.2.11"
+                },
+                "PiTwo": {
+                  "ansible_host": "192.0.2.12"
+                },
+                "PiThree": {
+                  "ansible_host": "192.0.2.13"
+                }
+              }
+            },
+            "telemetry_hosts": {
+              "hosts": {
+                "PiOne": {
+                  "ansible_host": "192.0.2.11"
+                },
+                "PiTwo": {
+                  "ansible_host": "192.0.2.12"
+                },
+                "PiThree": {
+                  "ansible_host": "192.0.2.13"
+                }
+              }
+            },
+            "backup_hosts": {
+              "hosts": {
+                "PiOne": {
+                  "ansible_host": "192.0.2.11"
+                },
+                "PiTwo": {
+                  "ansible_host": "192.0.2.12"
+                },
+                "PiThree": {
+                  "ansible_host": "192.0.2.13"
+                }
+              }
+            },
+            "code_tunnel_hosts": {
+              "hosts": {
+                "Controller": {
+                  "ansible_host": "192.0.2.10"
+                },
+                "PiOne": {
+                  "ansible_host": "192.0.2.11"
+                },
+                "PiTwo": {
+                  "ansible_host": "192.0.2.12"
+                },
+                "PiThree": {
+                  "ansible_host": "192.0.2.13"
+                }
+              }
+            },
+            "observer_hosts": {
+              "hosts": {
+                "Controller": {
+                  "ansible_host": "192.0.2.10"
+                },
+                "PiOne": {
+                  "ansible_host": "192.0.2.11"
+                },
+                "PiTwo": {
+                  "ansible_host": "192.0.2.12"
+                },
+                "PiThree": {
+                  "ansible_host": "192.0.2.13"
+                }
+              }
+            },
+            "otbr_hosts": {
+              "hosts": {
+                "PiOne": {
+                  "ansible_host": "192.0.2.11"
+                },
+                "PiThree": {
+                  "ansible_host": "192.0.2.13"
+                }
+              }
+            },
+            "observer_gateway": {
+              "hosts": {
+                "Controller": {
+                  "ansible_host": "192.0.2.10"
+                }
+              }
+            }
+          }
+        }
+      },
+      "group_vars/all.yml": {
+        "homelab_allow_service_restart": false,
+        "homelab_allow_docker_restart": false,
+        "homelab_allow_reboot": false,
+        "homelab_allow_nfs_remount": false,
+        "homelab_allow_otbr_restart": false,
+        "homelab_retire_legacy_backup": false,
+        "homelab_allow_backup_forget": false,
+        "homelab_observer_version": "0.1.0",
+        "homelab_observer_schema_version": 1,
+        "homelab_observer_release_url": "https://example.invalid/releases/download/v0.1.0/homelab_observer-0.1.0-py3-none-any.whl",
+        "homelab_observer_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "homelab_observer_local_artifact": "",
+        "zabbix_agent_admitted_hosts": [
+          "Controller",
+          "PiOne",
+          "PiTwo",
+          "PiThree"
+        ],
+        "zabbix_agent_controller_host": "Controller",
+        "zabbix_agent_lazy_overlay_host": "PiThree",
+        "zabbix_agent_admitted_overlay_network_id": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "zabbix_agent_admitted_lazy_overlay_swarm_node_id": "aaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "group_vars/docker_hosts.yml": {
+        "nfs_prerequisite_units": [],
+        "nfs_mount_options": "rw,hard,_netdev"
+      },
+      "host_vars/Controller.yml": {
+        "nfs_boot_mounts": [
+          {
+            "source": "nas.example.invalid:/exports/controller",
+            "target": "/mnt/nas/docker",
+            "check_only": false
+          },
+          {
+            "source": "nas.example.invalid:/exports/dev",
+            "target": "/mnt/nas/dev",
+            "check_only": true
+          }
+        ],
+        "nfs_prerequisite_units": [
+          "nfs-dev.service"
+        ],
+        "fleet_hostname": "Controller",
+        "fleet_capabilities": [
+          "docker",
+          "nfs"
+        ],
+        "observer_services": [
+          "docker.service"
+        ],
+        "observer_containers": [],
+        "telemetry_mqtt_client_id": "fixture-0",
+        "telemetry_base_topic": "fixture/telemetry/0",
+        "telemetry_sensor_name": "fixture_sensor_0",
+        "backup_timer_randomized_delay_sec": 60
+      },
+      "host_vars/PiOne.yml": {
+        "nfs_boot_mounts": [
+          {
+            "source": "nas.example.invalid:/exports/pione",
+            "target": "/mnt/nas/docker",
+            "check_only": false
+          }
+        ],
+        "nfs_prerequisite_units": [],
+        "fleet_hostname": "PiOne",
+        "fleet_capabilities": [
+          "docker",
+          "nfs"
+        ],
+        "observer_services": [
+          "docker.service"
+        ],
+        "observer_containers": [],
+        "telemetry_mqtt_client_id": "fixture-1",
+        "telemetry_base_topic": "fixture/telemetry/1",
+        "telemetry_sensor_name": "fixture_sensor_1",
+        "backup_timer_randomized_delay_sec": 61
+      },
+      "host_vars/PiTwo.yml": {
+        "nfs_boot_mounts": [
+          {
+            "source": "nas.example.invalid:/exports/pitwo",
+            "target": "/mnt/nas/docker",
+            "check_only": false
+          }
+        ],
+        "nfs_prerequisite_units": [],
+        "fleet_hostname": "PiTwo",
+        "fleet_capabilities": [
+          "docker",
+          "nfs"
+        ],
+        "observer_services": [
+          "docker.service"
+        ],
+        "observer_containers": [],
+        "telemetry_mqtt_client_id": "fixture-2",
+        "telemetry_base_topic": "fixture/telemetry/2",
+        "telemetry_sensor_name": "fixture_sensor_2",
+        "backup_timer_randomized_delay_sec": 62
+      },
+      "host_vars/PiThree.yml": {
+        "nfs_boot_mounts": [
+          {
+            "source": "nas.example.invalid:/exports/pithree",
+            "target": "/mnt/nas/docker",
+            "check_only": false
+          }
+        ],
+        "nfs_prerequisite_units": [],
+        "fleet_hostname": "PiThree",
+        "fleet_capabilities": [
+          "docker",
+          "nfs"
+        ],
+        "observer_services": [
+          "docker.service"
+        ],
+        "observer_containers": [],
+        "telemetry_mqtt_client_id": "fixture-3",
+        "telemetry_base_topic": "fixture/telemetry/3",
+        "telemetry_sensor_name": "fixture_sensor_3",
+        "backup_timer_randomized_delay_sec": 63
+      },
+      "zabbix.yml": {
+        "all": {
+          "vars": {
+            "homelab_allow_service_restart": false,
+            "homelab_allow_docker_restart": false,
+            "homelab_allow_reboot": false,
+            "homelab_allow_nfs_remount": false,
+            "homelab_allow_otbr_restart": false,
+            "homelab_retire_legacy_backup": false,
+            "homelab_allow_backup_forget": false,
+            "zabbix_agent_admitted_hosts": [
+              "Controller",
+              "PiOne",
+              "PiTwo",
+              "PiThree"
+            ],
+            "zabbix_agent_controller_host": "Controller",
+            "zabbix_agent_lazy_overlay_host": "PiThree",
+            "zabbix_agent_admitted_overlay_network_id": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+            "zabbix_agent_admitted_lazy_overlay_swarm_node_id": "aaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "children": {
+            "zabbix_agents": {
+              "children": {
+                "zabbix_pi_agents": {
+                  "vars": {},
+                  "hosts": {
+                    "PiOne": {
+                      "zabbix_agent_enabled": false,
+                      "zabbix_agent_install_enabled": false,
+                      "zabbix_agent_deploy_enabled": false,
+                      "zabbix_agent_canonical_integrated": false,
+                      "zabbix_agent_version_change_approved": false,
+                      "zabbix_agent_maintenance_window_approved": false,
+                      "zabbix_agent_runtime_baseline_confirmed": false,
+                      "zabbix_agent_transport_ready": false,
+                      "zabbix_agent_version_compatibility_reviewed": false,
+                      "zabbix_agent_secret_boundary_verified": false,
+                      "zabbix_agent_central_identity_confirmed": false,
+                      "zabbix_agent_overlay_attachment_approved": false,
+                      "zabbix_agent_overlay_absence_manager_verified": false,
+                      "homelab_allow_service_restart": false,
+                      "zabbix_agent_existing_project": false,
+                      "zabbix_agent_project_name": "zabbix-agent",
+                      "zabbix_agent_compose_dir": "/etc/homelab/zabbix-agent",
+                      "zabbix_agent_service_name": "zabbix-agent-pione",
+                      "zabbix_agent_container_name": "zabbix-agent-pione",
+                      "zabbix_agent_overlay_network": "underground",
+                      "zabbix_agent_overlay_network_id": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+                      "zabbix_agent_swarm_node_id": "aaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "zabbix_agent_canonical_compose": "/mnt/nas/docker/homelab/stacks/benbeast/monitoring/compose.yaml",
+                      "zabbix_agent_canonical_sha256": "",
+                      "zabbix_agent_expected_container_id": "1111111111111111111111111111111111111111111111111111111111111111",
+                      "zabbix_agent_expected_image_id": "sha256:525da77bced818c01390082df267ed631b6d7de0e5155c46a44bbbe5c26fefd2",
+                      "zabbix_agent_expected_container_image_id": "sha256:525da77bced818c01390082df267ed631b6d7de0e5155c46a44bbbe5c26fefd2",
+                      "zabbix_agent_image": "zabbix/zabbix-agent2:alpine-7.0.31",
+                      "zabbix_agent_image_digest": "sha256:90547dfac57596d500f85e022d00d7ea47ed9b46fd80fd5a027d039dbabb6fea",
+                      "zabbix_agent_runtime_uid": 1997,
+                      "zabbix_agent_runtime_gid": 1995,
+                      "zabbix_agent_verified_image_user": "1997",
+                      "zabbix_agent_image_user_verified": false,
+                      "zabbix_agent_architecture": "arm64",
+                      "zabbix_agent_hostname": "PiOne",
+                      "zabbix_agent_server_active": "zabbix-server:10051",
+                      "zabbix_agent_transport_mode": "unencrypted",
+                      "zabbix_agent_passive_server": "",
+                      "zabbix_agent_passive_tls_accept": "unencrypted",
+                      "zabbix_agent_psk_identity": "",
+                      "zabbix_agent_psk_file": "",
+                      "zabbix_agent_psk_container_file": "/run/zabbix-secrets/agent.psk",
+                      "zabbix_agent_filesystem_anchors": [
+                        {
+                          "alias": "root",
+                          "source": "/.homelab-zabbix-rootfs.anchor",
+                          "expected_mount": "/",
+                          "expected_fstype": "ext4"
+                        }
+                      ],
+                      "zabbix_agent_docker_binary": "/usr/bin/docker",
+                      "zabbix_agent_findmnt_binary": "/usr/bin/findmnt",
+                      "inventory_hostname": "PiOne",
+                      "zabbix_agent_config_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                      "zabbix_agent_admitted_hosts": [
+                        "Controller",
+                        "PiOne",
+                        "PiTwo",
+                        "PiThree"
+                      ],
+                      "zabbix_agent_controller_host": "Controller",
+                      "zabbix_agent_lazy_overlay_host": "PiThree",
+                      "zabbix_agent_root_anchor_approved": false,
+                      "zabbix_agent_admitted_lazy_overlay_swarm_node_id": "aaaaaaaaaaaaaaaaaaaaaaaaa"
+                    },
+                    "PiTwo": {
+                      "zabbix_agent_enabled": false,
+                      "zabbix_agent_install_enabled": false,
+                      "zabbix_agent_deploy_enabled": false,
+                      "zabbix_agent_canonical_integrated": false,
+                      "zabbix_agent_version_change_approved": false,
+                      "zabbix_agent_maintenance_window_approved": false,
+                      "zabbix_agent_runtime_baseline_confirmed": false,
+                      "zabbix_agent_transport_ready": false,
+                      "zabbix_agent_version_compatibility_reviewed": false,
+                      "zabbix_agent_secret_boundary_verified": false,
+                      "zabbix_agent_central_identity_confirmed": false,
+                      "zabbix_agent_overlay_attachment_approved": false,
+                      "zabbix_agent_overlay_absence_manager_verified": false,
+                      "homelab_allow_service_restart": false,
+                      "zabbix_agent_existing_project": false,
+                      "zabbix_agent_project_name": "zabbix-agent",
+                      "zabbix_agent_compose_dir": "/etc/homelab/zabbix-agent",
+                      "zabbix_agent_service_name": "zabbix-agent-pitwo",
+                      "zabbix_agent_container_name": "zabbix-agent-pitwo",
+                      "zabbix_agent_overlay_network": "underground",
+                      "zabbix_agent_overlay_network_id": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+                      "zabbix_agent_swarm_node_id": "aaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "zabbix_agent_canonical_compose": "/mnt/nas/docker/homelab/stacks/benbeast/monitoring/compose.yaml",
+                      "zabbix_agent_canonical_sha256": "",
+                      "zabbix_agent_expected_container_id": "2222222222222222222222222222222222222222222222222222222222222222",
+                      "zabbix_agent_expected_image_id": "sha256:525da77bced818c01390082df267ed631b6d7de0e5155c46a44bbbe5c26fefd2",
+                      "zabbix_agent_expected_container_image_id": "sha256:525da77bced818c01390082df267ed631b6d7de0e5155c46a44bbbe5c26fefd2",
+                      "zabbix_agent_image": "zabbix/zabbix-agent2:alpine-7.0.31",
+                      "zabbix_agent_image_digest": "sha256:90547dfac57596d500f85e022d00d7ea47ed9b46fd80fd5a027d039dbabb6fea",
+                      "zabbix_agent_runtime_uid": 1997,
+                      "zabbix_agent_runtime_gid": 1995,
+                      "zabbix_agent_verified_image_user": "1997",
+                      "zabbix_agent_image_user_verified": false,
+                      "zabbix_agent_architecture": "arm64",
+                      "zabbix_agent_hostname": "PiTwo",
+                      "zabbix_agent_server_active": "zabbix-server:10051",
+                      "zabbix_agent_transport_mode": "unencrypted",
+                      "zabbix_agent_passive_server": "",
+                      "zabbix_agent_passive_tls_accept": "unencrypted",
+                      "zabbix_agent_psk_identity": "",
+                      "zabbix_agent_psk_file": "",
+                      "zabbix_agent_psk_container_file": "/run/zabbix-secrets/agent.psk",
+                      "zabbix_agent_filesystem_anchors": [
+                        {
+                          "alias": "root",
+                          "source": "/.homelab-zabbix-rootfs.anchor",
+                          "expected_mount": "/",
+                          "expected_fstype": "ext4"
+                        }
+                      ],
+                      "zabbix_agent_docker_binary": "/usr/bin/docker",
+                      "zabbix_agent_findmnt_binary": "/usr/bin/findmnt",
+                      "inventory_hostname": "PiTwo",
+                      "zabbix_agent_config_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                      "zabbix_agent_admitted_hosts": [
+                        "Controller",
+                        "PiOne",
+                        "PiTwo",
+                        "PiThree"
+                      ],
+                      "zabbix_agent_controller_host": "Controller",
+                      "zabbix_agent_lazy_overlay_host": "PiThree",
+                      "zabbix_agent_root_anchor_approved": false,
+                      "zabbix_agent_admitted_lazy_overlay_swarm_node_id": "aaaaaaaaaaaaaaaaaaaaaaaaa"
+                    },
+                    "PiThree": {
+                      "zabbix_agent_enabled": false,
+                      "zabbix_agent_install_enabled": false,
+                      "zabbix_agent_deploy_enabled": false,
+                      "zabbix_agent_canonical_integrated": false,
+                      "zabbix_agent_version_change_approved": false,
+                      "zabbix_agent_maintenance_window_approved": false,
+                      "zabbix_agent_runtime_baseline_confirmed": false,
+                      "zabbix_agent_transport_ready": false,
+                      "zabbix_agent_version_compatibility_reviewed": false,
+                      "zabbix_agent_secret_boundary_verified": false,
+                      "zabbix_agent_central_identity_confirmed": false,
+                      "zabbix_agent_overlay_attachment_approved": false,
+                      "zabbix_agent_overlay_absence_manager_verified": false,
+                      "homelab_allow_service_restart": false,
+                      "zabbix_agent_existing_project": false,
+                      "zabbix_agent_project_name": "zabbix-agent",
+                      "zabbix_agent_compose_dir": "/etc/homelab/zabbix-agent",
+                      "zabbix_agent_service_name": "zabbix-agent-pithree",
+                      "zabbix_agent_container_name": "zabbix-agent-pithree",
+                      "zabbix_agent_overlay_network": "underground",
+                      "zabbix_agent_overlay_network_id": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+                      "zabbix_agent_swarm_node_id": "aaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "zabbix_agent_canonical_compose": "/mnt/nas/docker/homelab/stacks/benbeast/monitoring/compose.yaml",
+                      "zabbix_agent_canonical_sha256": "",
+                      "zabbix_agent_expected_container_id": "3333333333333333333333333333333333333333333333333333333333333333",
+                      "zabbix_agent_expected_image_id": "sha256:90547dfac57596d500f85e022d00d7ea47ed9b46fd80fd5a027d039dbabb6fea",
+                      "zabbix_agent_expected_container_image_id": "sha256:90547dfac57596d500f85e022d00d7ea47ed9b46fd80fd5a027d039dbabb6fea",
+                      "zabbix_agent_image": "zabbix/zabbix-agent2:alpine-7.0.31",
+                      "zabbix_agent_image_digest": "sha256:90547dfac57596d500f85e022d00d7ea47ed9b46fd80fd5a027d039dbabb6fea",
+                      "zabbix_agent_runtime_uid": 1997,
+                      "zabbix_agent_runtime_gid": 1995,
+                      "zabbix_agent_verified_image_user": "1997",
+                      "zabbix_agent_image_user_verified": false,
+                      "zabbix_agent_architecture": "arm64",
+                      "zabbix_agent_hostname": "PiThree",
+                      "zabbix_agent_server_active": "zabbix-server:10051",
+                      "zabbix_agent_transport_mode": "unencrypted",
+                      "zabbix_agent_passive_server": "",
+                      "zabbix_agent_passive_tls_accept": "unencrypted",
+                      "zabbix_agent_psk_identity": "",
+                      "zabbix_agent_psk_file": "",
+                      "zabbix_agent_psk_container_file": "/run/zabbix-secrets/agent.psk",
+                      "zabbix_agent_filesystem_anchors": [
+                        {
+                          "alias": "root",
+                          "source": "/.homelab-zabbix-rootfs.anchor",
+                          "expected_mount": "/",
+                          "expected_fstype": "ext4"
+                        }
+                      ],
+                      "zabbix_agent_docker_binary": "/usr/bin/docker",
+                      "zabbix_agent_findmnt_binary": "/usr/bin/findmnt",
+                      "inventory_hostname": "PiThree",
+                      "zabbix_agent_config_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                      "zabbix_agent_admitted_hosts": [
+                        "Controller",
+                        "PiOne",
+                        "PiTwo",
+                        "PiThree"
+                      ],
+                      "zabbix_agent_controller_host": "Controller",
+                      "zabbix_agent_lazy_overlay_host": "PiThree",
+                      "zabbix_agent_root_anchor_approved": false,
+                      "zabbix_agent_admitted_lazy_overlay_swarm_node_id": "aaaaaaaaaaaaaaaaaaaaaaaaa"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "policy": {
+      "managed_hosts": [
+        "Controller",
+        "PiOne",
+        "PiTwo",
+        "PiThree"
+      ],
+      "otbr_hosts": [
+        "PiOne",
+        "PiThree"
+      ],
+      "observer_gateway": [
+        "Controller"
+      ],
+      "primary_nfs": {
+        "Controller": [
+          "nas.example.invalid:/exports/controller",
+          "/mnt/nas/docker"
+        ],
+        "PiOne": [
+          "nas.example.invalid:/exports/pione",
+          "/mnt/nas/docker"
+        ],
+        "PiTwo": [
+          "nas.example.invalid:/exports/pitwo",
+          "/mnt/nas/docker"
+        ],
+        "PiThree": [
+          "nas.example.invalid:/exports/pithree",
+          "/mnt/nas/docker"
+        ]
+      }
+    }
+  }
+}

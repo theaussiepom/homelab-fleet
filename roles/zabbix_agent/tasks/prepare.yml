@@ -1,0 +1,68 @@
+---
+- name: Fingerprint nonsecret Pi configuration so Compose detects config file changes
+  ansible.builtin.set_fact:
+    zabbix_agent_config_fingerprint: >-
+      {{ {'env': lookup('ansible.builtin.template', 'agent.env.j2'),
+          'agent_config': (lookup('ansible.builtin.template', 'zabbix_agent2.conf.j2')
+                           if not zabbix_agent_existing_project else ''),
+          'image': zabbix_agent_image, 'digest': zabbix_agent_image_digest,
+          'uid': zabbix_agent_runtime_uid, 'gid': zabbix_agent_runtime_gid,
+          'transport_mode': zabbix_agent_transport_mode,
+          'psk_path': (zabbix_agent_psk_file if zabbix_agent_transport_mode == 'psk' else ''),
+          'anchors': zabbix_agent_filesystem_anchors,
+          'compose_policy': lookup('ansible.builtin.file', role_path ~ '/templates/compose.yaml.j2'),
+          'architecture': zabbix_agent_architecture, 'policy_version': 1} | to_json | hash('sha256') }}
+  no_log: true
+  when: not zabbix_agent_existing_project
+
+- name: Create only the approved root-owned agent configuration directory
+  ansible.builtin.file:
+    path: "{{ zabbix_agent_compose_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Prepare nonsecret agent environment with backup
+  ansible.builtin.template:
+    src: agent.env.j2
+    dest: "{{ zabbix_agent_compose_dir }}/zabbix-agent.env"
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  register: zabbix_agent_environment_prepared
+  no_log: true
+  diff: false
+
+- name: Prepare complete read-only Pi agent configuration with backup
+  ansible.builtin.template:
+    src: zabbix_agent2.conf.j2
+    dest: "{{ zabbix_agent_compose_dir }}/zabbix_agent2.conf"
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  register: zabbix_agent_configuration_prepared
+  when: not zabbix_agent_existing_project
+  no_log: true
+  diff: false
+
+- name: Prepare only the Pi Compose file with backup
+  ansible.builtin.template:
+    src: compose.yaml.j2
+    dest: "{{ zabbix_agent_compose_dir }}/compose.yaml"
+    owner: root
+    group: root
+    mode: "0640"
+    backup: true
+  register: zabbix_agent_compose_prepared
+  when: not zabbix_agent_existing_project
+  no_log: true
+  diff: false
+
+- name: Describe prepared files that remain inactive
+  ansible.builtin.debug:
+    msg: >-
+      Configuration preparation does not start or recreate an agent. controller host uses only its
+      separately reviewed canonical monitoring Compose file; this role never writes that file.

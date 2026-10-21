@@ -1,0 +1,149 @@
+---
+- name: Validate backup target is configuration-only and host-scoped
+  ansible.builtin.assert:
+    that:
+      - backup_mount_target == '/backup'
+      - >-
+        backup_nfs_source == lookup('ansible.builtin.env', 'HOMELAB_ANSIBLE_EXPECTED_BACKUP_NFS_SOURCE',
+        default=undef())
+      - inventory_hostname is match('^[A-Za-z0-9_-]+$')
+    quiet: true
+
+- name: Install restic and NFS client
+  ansible.builtin.apt:
+    name:
+      - nfs-common
+      - restic
+    state: present
+    update_cache: false
+
+- name: Ensure backup mount helper is available on local disk
+  ansible.builtin.copy:
+    src: "{{ role_path }}/../nfs_docker/files/homelab-nfs-ensure"
+    dest: /usr/local/libexec/homelab-nfs-ensure
+    owner: root
+    group: root
+    mode: "0755"
+    backup: true
+
+- name: Create local backup state and configuration directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - path: /etc/homelab/backup
+      mode: "0700"
+    - path: /var/lib/homelab-backup
+      mode: "0700"
+
+- name: Note missing restic secret during check mode
+  ansible.builtin.debug:
+    msg: Restic password is unavailable; the existing environment file is preserved.
+  when: vault_restic_password is not defined
+
+- name: Require encrypted restic password for live apply
+  ansible.builtin.assert:
+    that:
+      - vault_restic_password is defined
+      - vault_restic_password is string
+      - vault_restic_password | length > 0
+      - vault_restic_password is not search('[\x00-\x1f\x7f]')
+      - vault_restic_password != 'CHANGE_ME'
+    fail_msg: Define vault_restic_password in encrypted inventory vault.yml.
+  when: not ansible_check_mode
+  no_log: true
+
+- name: Install root-only restic environment
+  ansible.builtin.template:
+    src: restic.env.j2
+    dest: /etc/homelab/backup/restic.env
+    owner: root
+    group: root
+    mode: "0600"
+    backup: true
+  no_log: true
+  when: vault_restic_password is defined
+
+- name: Install configuration-only backup script
+  ansible.builtin.template:
+    src: homelab-config-backup.j2
+    dest: /usr/local/sbin/homelab-config-backup
+    owner: root
+    group: root
+    mode: "0750"
+    backup: true
+
+- name: Install backup mount unit
+  ansible.builtin.template:
+    src: homelab-backup-mount.service.j2
+    dest: /etc/systemd/system/homelab-backup-mount.service
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  notify: Reload backup systemd units
+
+- name: Install restic backup service
+  ansible.builtin.template:
+    src: homelab-config-backup.service.j2
+    dest: /etc/systemd/system/homelab-config-backup.service
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  notify: Reload backup systemd units
+
+- name: Install staggered restic timer
+  ansible.builtin.template:
+    src: homelab-config-backup.timer.j2
+    dest: /etc/systemd/system/homelab-config-backup.timer
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  notify: Reload backup systemd units
+
+- name: Enable backup units without starting backup or mounting NAS
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    daemon_reload: true
+  loop:
+    - homelab-backup-mount.service
+    - homelab-config-backup.timer
+  when: not ansible_check_mode
+
+- name: Report planned backup unit enablement in check mode
+  ansible.builtin.debug:
+    msg: >-
+      Would enable homelab-backup-mount.service and
+      homelab-config-backup.timer without starting either unit.
+  when: ansible_check_mode
+
+- name: Inspect successful backup marker
+  ansible.builtin.stat:
+    path: /var/lib/homelab-backup/last-check-ok
+  register: host_config_backup_success_marker
+
+- name: Refuse premature legacy backup retirement
+  ansible.builtin.assert:
+    that:
+      - host_config_backup_success_marker.stat.exists
+    fail_msg: >-
+      Legacy cron retirement was requested, but no successful restic backup and
+      restic check marker exists on this host.
+  when: homelab_retire_legacy_backup | bool
+
+- name: Retire only the exact known legacy backup line after explicit gating
+  ansible.builtin.lineinfile:
+    path: /var/spool/cron/crontabs/root
+    regexp: "^{{ legacy_backup_cron_line | regex_escape }}$"
+    state: absent
+    backup: true
+  when:
+    - homelab_retire_legacy_backup | bool
+    - legacy_backup_cron_line is defined
+    - host_config_backup_success_marker.stat.exists

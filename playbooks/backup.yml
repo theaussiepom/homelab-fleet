@@ -1,0 +1,25 @@
+---
+- name: Initialise and verify encrypted local-configuration backup
+  hosts: backup_hosts
+  gather_facts: false
+  become: true
+  pre_tasks:
+    - name: Require explicit backup execution approval
+      ansible.builtin.assert:
+        that:
+          - homelab_backup_execute | default(false) | bool
+        fail_msg: Re-run with -e homelab_backup_execute=true after reviewing NAS writes.
+  roles:
+    - role: host_config_backup
+      tags: [host_config_backup]
+  post_tasks:
+    - name: Run one small backup and restic check
+      ansible.builtin.systemd_service:
+        name: homelab-config-backup.service
+        state: started
+
+    - name: Verify successful backup marker
+      ansible.builtin.stat:
+        path: /var/lib/homelab-backup/last-check-ok
+      register: backup_marker
+      failed_when: not backup_marker.stat.exists

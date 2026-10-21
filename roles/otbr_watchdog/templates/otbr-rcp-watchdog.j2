@@ -1,0 +1,210 @@
+#!/usr/bin/env bash
+# Ansible-managed canonical existing OTBR RCP resilience watchdog.
+# OTBR RCP resilience watchdog for OTBR hosts (Lounge/Study).
+# Detects wedged ZBT-2 / unhealthy OTBR, tries USB reset, then host reboot.
+{% raw %}set -euo pipefail
+
+CONTAINER="${OTBR_CONTAINER:-otbr}"
+USB_VIDPID="${OTBR_USB_VIDPID:-303a:831a}"
+STATE_DIR="${OTBR_WATCHDOG_STATE_DIR:-/var/lib/otbr-watchdog}"
+STATE_FILE="$STATE_DIR/state"
+LOG_TAG="otbr-rcp-watchdog"
+
+# How many consecutive failed checks before acting (timer is ~60s → ~3 min)
+FAIL_THRESHOLD="${OTBR_FAIL_THRESHOLD:-3}"
+# Max USB reset attempts per incident before reboot
+USB_RESET_MAX="${OTBR_USB_RESET_MAX:-2}"
+# Min seconds between USB resets
+USB_RESET_COOLDOWN_SEC="${OTBR_USB_RESET_COOLDOWN_SEC:-300}"
+# Min seconds between watchdog-initiated reboots
+REBOOT_COOLDOWN_SEC="${OTBR_REBOOT_COOLDOWN_SEC:-7200}"
+# Seconds to wait for OTBR to become healthy after start/reset
+HEALTH_WAIT_SEC="${OTBR_HEALTH_WAIT_SEC:-90}"
+# Grace after boot before we will reboot (avoid boot loops)
+BOOT_GRACE_SEC="${OTBR_BOOT_GRACE_SEC:-300}"
+
+log() { logger -t "$LOG_TAG" -- "$*"; echo "$(date -Is) $*"; }
+
+mkdir -p "$STATE_DIR"
+touch "$STATE_FILE"
+
+read_state() {
+  FAIL_COUNT=0
+  USB_ATTEMPTS=0
+  LAST_USB_RESET=0
+  LAST_REBOOT=0
+  # shellcheck disable=SC1090
+  source "$STATE_FILE" 2>/dev/null || true
+  FAIL_COUNT=${FAIL_COUNT:-0}
+  USB_ATTEMPTS=${USB_ATTEMPTS:-0}
+  LAST_USB_RESET=${LAST_USB_RESET:-0}
+  LAST_REBOOT=${LAST_REBOOT:-0}
+}
+
+write_state() {
+  umask 077
+  cat >"$STATE_FILE" <<STATE
+FAIL_COUNT=$FAIL_COUNT
+USB_ATTEMPTS=$USB_ATTEMPTS
+LAST_USB_RESET=$LAST_USB_RESET
+LAST_REBOOT=$LAST_REBOOT
+STATE
+}
+
+now() { date +%s; }
+
+uptime_sec() {
+  cut -d. -f1 /proc/uptime
+}
+
+otbr_healthy() {
+  local status health role
+  status=$(docker inspect -f '{{.State.Status}}' "$CONTAINER" 2>/dev/null || echo missing)
+  [[ "$status" == "running" ]] || return 1
+
+  health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$CONTAINER" 2>/dev/null || echo missing)
+  case "$health" in
+    healthy|none|starting) ;;
+    *) return 1 ;;
+  esac
+
+  role=$(docker exec "$CONTAINER" ot-ctl state 2>/dev/null | tr -d '\r' | head -1 || true)
+  [[ "$role" == "router" || "$role" == "leader" ]] || return 1
+
+  curl -fsS -m 3 "http://127.0.0.1:8081/node" >/dev/null 2>&1 || return 1
+  return 0
+}
+
+find_zbt_sysfs() {
+  local d
+  for d in /sys/bus/usb/devices/*; do
+    [[ -f "$d/idVendor" && -f "$d/idProduct" ]] || continue
+    if [[ "$(cat "$d/idVendor")" == "303a" && "$(cat "$d/idProduct")" == "831a" ]]; then
+      echo "$d"
+      return 0
+    fi
+  done
+  return 1
+}
+
+usb_reset_zbt() {
+  log "USB reset: stopping $CONTAINER"
+  docker stop "$CONTAINER" >/dev/null 2>&1 || true
+  sleep 2
+
+  if command -v usbreset >/dev/null 2>&1; then
+    log "USB reset: usbreset $USB_VIDPID"
+    usbreset "$USB_VIDPID" >/dev/null 2>&1 || true
+    sleep 2
+  fi
+
+  local dev parent name
+  dev=$(find_zbt_sysfs || true)
+  if [[ -n "${dev:-}" ]]; then
+    name=$(basename "$dev")
+    parent="$(dirname "$dev")/$(echo "$name" | cut -d. -f1)"
+    if [[ "$name" == *.* && -e "$dev/remove" ]]; then
+      log "USB reset: sysfs remove $name"
+      echo 1 >"$dev/remove" 2>/dev/null || true
+      sleep 2
+      if [[ -e "$parent/authorized" ]]; then
+        log "USB reset: re-auth parent $(basename "$parent")"
+        echo 0 >"$parent/authorized" 2>/dev/null || true
+        sleep 2
+        echo 1 >"$parent/authorized" 2>/dev/null || true
+      fi
+    elif [[ -e "$dev/authorized" ]]; then
+      log "USB reset: authorize cycle $name"
+      echo 0 >"$dev/authorized" 2>/dev/null || true
+      sleep 2
+      echo 1 >"$dev/authorized" 2>/dev/null || true
+    fi
+  else
+    log "USB reset: ZBT-2 not visible in sysfs after stop"
+  fi
+
+  local i
+  for i in $(seq 1 20); do
+    if ls /dev/serial/by-id/usb-Nabu_Casa_ZBT-2_* >/dev/null 2>&1; then
+      break
+    fi
+    sleep 1
+  done
+
+  log "USB reset: starting $CONTAINER"
+  docker start "$CONTAINER" >/dev/null
+}
+
+wait_healthy() {
+  local deadline=$(( $(now) + HEALTH_WAIT_SEC ))
+  while (( $(now) < deadline )); do
+    if otbr_healthy; then
+      return 0
+    fi
+    sleep 5
+  done
+  return 1
+}
+
+do_reboot() {
+  local ts
+  ts=$(now)
+  if (( ts - LAST_REBOOT < REBOOT_COOLDOWN_SEC )); then
+    log "Reboot suppressed: cooldown $(( REBOOT_COOLDOWN_SEC - (ts - LAST_REBOOT) ))s remaining"
+    return 0
+  fi
+  if (( $(uptime_sec) < BOOT_GRACE_SEC )); then
+    log "Reboot suppressed: within boot grace (${BOOT_GRACE_SEC}s)"
+    return 0
+  fi
+  LAST_REBOOT=$ts
+  USB_ATTEMPTS=0
+  FAIL_COUNT=0
+  write_state
+  log "RCP still dead after USB reset(s) — rebooting host to recover ZBT-2"
+  sync
+  /sbin/reboot
+}
+
+read_state
+
+if otbr_healthy; then
+  if (( FAIL_COUNT > 0 || USB_ATTEMPTS > 0 )); then
+    log "OTBR healthy again (role ok); clearing incident counters"
+  fi
+  FAIL_COUNT=0
+  USB_ATTEMPTS=0
+  write_state
+  exit 0
+fi
+
+FAIL_COUNT=$((FAIL_COUNT + 1))
+write_state
+log "OTBR unhealthy (fail $FAIL_COUNT/$FAIL_THRESHOLD; usb_attempts=$USB_ATTEMPTS)"
+
+if (( FAIL_COUNT < FAIL_THRESHOLD )); then
+  exit 0
+fi
+
+docker update --restart=no "$CONTAINER" >/dev/null 2>&1 || true
+
+ts=$(now)
+if (( USB_ATTEMPTS < USB_RESET_MAX )) && (( ts - LAST_USB_RESET >= USB_RESET_COOLDOWN_SEC )); then
+  USB_ATTEMPTS=$((USB_ATTEMPTS + 1))
+  LAST_USB_RESET=$ts
+  write_state
+  log "Attempting USB reset $USB_ATTEMPTS/$USB_RESET_MAX"
+  usb_reset_zbt || true
+  if wait_healthy; then
+    log "Recovered after USB reset"
+    FAIL_COUNT=0
+    USB_ATTEMPTS=0
+    docker update --restart=unless-stopped "$CONTAINER" >/dev/null 2>&1 || true
+    write_state
+    exit 0
+  fi
+  log "USB reset $USB_ATTEMPTS did not restore health"
+fi
+
+do_reboot
+{% endraw %}

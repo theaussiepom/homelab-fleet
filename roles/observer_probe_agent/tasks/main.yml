@@ -1,0 +1,161 @@
+---
+- name: Validate immutable observer release contract
+  ansible.builtin.assert:
+    that:
+      - homelab_observer_version is match('^[0-9]+\.[0-9]+\.[0-9]+$')
+      - homelab_observer_schema_version | int == 1
+      - homelab_observer_release_url | length > 0
+      - homelab_observer_version in homelab_observer_release_url
+      - homelab_observer_sha256 is match('^[0-9a-f]{64}$')
+      - homelab_observer_sha256 != '0' * 64
+    fail_msg: Observer version, schema, immutable URL, or SHA-256 pin is invalid.
+    quiet: true
+
+- name: Inspect local observer artifact override
+  ansible.builtin.stat:
+    path: "{{ homelab_observer_local_artifact }}"
+    checksum_algorithm: sha256
+  delegate_to: localhost
+  become: false
+  register: observer_probe_agent_local_artifact
+  when: homelab_observer_local_artifact | length > 0
+
+- name: Validate local observer artifact override
+  ansible.builtin.assert:
+    that:
+      - observer_probe_agent_local_artifact.stat.exists
+      - observer_probe_agent_local_artifact.stat.isreg
+      - observer_probe_agent_local_artifact.stat.checksum == homelab_observer_sha256
+    fail_msg: Local observer artifact is missing or does not match the pinned SHA-256.
+    quiet: true
+  when: homelab_observer_local_artifact | length > 0
+
+- name: Install observer virtual environment prerequisite
+  ansible.builtin.apt:
+    name: python3-venv
+    state: present
+    update_cache: false
+
+- name: Create local observer directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: root
+    group: "{{ item.group if not ansible_check_mode else omit }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - path: "{{ observer_probe_agent_install_root }}"
+      group: root
+      mode: "0755"
+    - path: /etc/homelab-observer
+      group: "{{ observer_group }}"
+      mode: "0750"
+    - path: "{{ observer_probe_agent_state_directory }}"
+      group: "{{ observer_group }}"
+      mode: "0750"
+    - path: "{{ observer_probe_agent_artifact_directory }}"
+      group: root
+      mode: "0755"
+
+- name: Copy reviewed local observer artifact
+  ansible.builtin.copy:
+    src: "{{ homelab_observer_local_artifact }}"
+    dest: "{{ observer_probe_agent_artifact_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  when: homelab_observer_local_artifact | length > 0
+
+- name: Download checksum-pinned observer release
+  ansible.builtin.get_url:
+    url: "{{ homelab_observer_release_url }}"
+    dest: "{{ observer_probe_agent_artifact_path }}"
+    checksum: "sha256:{{ homelab_observer_sha256 }}"
+    headers: "{{ vault_observer_release_headers | default({}) }}"
+    owner: root
+    group: root
+    mode: "0644"
+  when: homelab_observer_local_artifact | length == 0
+  no_log: "{{ vault_observer_release_headers is defined }}"
+
+- name: Create dedicated observer virtual environment
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/python3
+      - -m
+      - venv
+      - "{{ observer_probe_agent_venv }}"
+    creates: "{{ observer_probe_agent_venv }}/bin/python"
+
+- name: Install only the checksum-pinned observer wheel
+  ansible.builtin.pip:
+    name: "{{ observer_probe_agent_artifact_path }}"
+    virtualenv: "{{ observer_probe_agent_venv }}"
+    state: present
+  notify: Conditionally restart probe agent
+  when: not ansible_check_mode
+
+- name: Verify installed observer package version
+  ansible.builtin.command:
+    argv:
+      - "{{ observer_probe_agent_venv }}/bin/python"
+      - -c
+      - >-
+        import importlib.metadata as m, sys;
+        sys.exit(0 if m.version('homelab-observer') == sys.argv[1] else 1)
+      - "{{ homelab_observer_version }}"
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Report planned observer wheel installation in check mode
+  ansible.builtin.debug:
+    msg: >-
+      Would install homelab-observer {{ homelab_observer_version }} from the
+      SHA-256-verified wheel into {{ observer_probe_agent_venv }}.
+  when: ansible_check_mode
+
+- name: Install inventory-derived observer runtime configuration
+  ansible.builtin.template:
+    src: runtime.json.j2
+    dest: "{{ observer_probe_agent_config_path }}"
+    owner: root
+    group: "{{ observer_group if not ansible_check_mode else omit }}"
+    mode: "0640"
+    backup: true
+    validate: /usr/bin/python3 -m json.tool %s
+  notify:
+    - Conditionally restart probe agent
+    - Conditionally restart observer gateway
+
+- name: Validate runtime configuration with the installed observer schema
+  ansible.builtin.command:
+    argv:
+      - "{{ observer_probe_agent_venv }}/bin/homelab-observer-validate-config"
+      - --config
+      - "{{ observer_probe_agent_config_path }}"
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Install root-owned probe agent service
+  ansible.builtin.template:
+    src: homelab-probe-agent.service.j2
+    dest: /etc/systemd/system/homelab-probe-agent.service
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  notify:
+    - Reload observer systemd units
+    - Conditionally restart probe agent
+
+- name: Enable probe agent without forcing a start
+  ansible.builtin.systemd_service:
+    name: homelab-probe-agent.service
+    enabled: true
+    daemon_reload: true
+  when: not ansible_check_mode
+
+- name: Report planned probe enablement in check mode
+  ansible.builtin.debug:
+    msg: Would enable homelab-probe-agent.service without starting it.
+  when: ansible_check_mode

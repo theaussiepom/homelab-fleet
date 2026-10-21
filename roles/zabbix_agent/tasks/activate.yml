@@ -1,0 +1,146 @@
+---
+- name: Require every independent approval before an agent can be started or recreated
+  ansible.builtin.assert:
+    that:
+      - zabbix_agent_enabled
+      - zabbix_agent_install_enabled
+      - zabbix_agent_deploy_enabled
+      - not zabbix_agent_existing_project or zabbix_agent_canonical_integrated
+      - zabbix_agent_maintenance_window_approved
+      - zabbix_agent_runtime_baseline_confirmed
+      - zabbix_agent_transport_ready
+      - zabbix_agent_version_compatibility_reviewed
+      - zabbix_agent_central_identity_confirmed
+      - zabbix_agent_existing_project or zabbix_agent_overlay_attachment_approved
+      - homelab_allow_service_restart
+      - not ansible_check_mode
+    quiet: true
+    fail_msg: >-
+      Deployment is blocked pending canonical integration, transport, compatibility,
+      drift review and an explicitly approved restart window.
+
+- name: Refresh source runtime image transport and mount drift checks immediately before activation
+  ansible.builtin.include_tasks: inspect.yml
+
+- name: Define single-file Compose arguments without a shell
+  ansible.builtin.set_fact:
+    zabbix_agent_compose_argv: >-
+      {{ [zabbix_agent_docker_binary, 'compose', '--project-name', zabbix_agent_project_name,
+          '--project-directory',
+          (zabbix_agent_canonical_compose | dirname) if zabbix_agent_existing_project
+          else zabbix_agent_compose_dir, '-f',
+          zabbix_agent_canonical_compose if zabbix_agent_existing_project
+          else zabbix_agent_compose_dir ~ '/compose.yaml'] }}
+
+- name: Validate only the rendered Compose configuration without printing it
+  ansible.builtin.command:
+    argv: "{{ zabbix_agent_compose_argv + ['config', '--quiet'] }}"
+  changed_when: false
+  no_log: true
+
+- name: Project only the canonical agent image from an internal nonresolved Compose model
+  ansible.builtin.command:
+    argv: >-
+      {{ ['/usr/bin/python3', '-c',
+          lookup('ansible.builtin.file', role_path ~ '/files/selected_compose_image.py')] +
+         zabbix_agent_compose_argv +
+         ['--env-file', '/dev/null', 'config', '--format', 'json',
+          '--no-interpolate', '--no-env-resolution', zabbix_agent_service_name] }}
+  register: zabbix_agent_canonical_image_ref
+  changed_when: false
+  # Only the image reference reaches Ansible. Full model/stderr stay inside the bounded query.
+  no_log: true
+
+- name: Require exactly one selected canonical image reference
+  ansible.builtin.assert:
+    that:
+      - zabbix_agent_canonical_image_ref.stdout_lines | length == 1
+      - zabbix_agent_canonical_image_ref.stdout | length <= 256
+    quiet: true
+  no_log: true
+
+- name: Read the selected canonical image local identity without pulling it
+  ansible.builtin.command:
+    argv:
+      - "{{ zabbix_agent_docker_binary }}"
+      - image
+      - inspect
+      - "{{ zabbix_agent_canonical_image_ref.stdout }}"
+      - --format
+      - "{% raw %}{{.Id}}{% endraw %}"
+  register: zabbix_agent_canonical_image_observed
+  changed_when: false
+  no_log: true
+
+- name: Reject a canonical image that differs from the separately approved desired image
+  ansible.builtin.assert:
+    that:
+      - zabbix_agent_canonical_image_observed.stdout == zabbix_agent_expected_image_id
+    quiet: true
+    fail_msg: Canonical agent image does not match the approved desired local image identity; no activation.
+  no_log: true
+
+- name: Reconcile only the approved agent without dependencies pulls or builds
+  ansible.builtin.command:
+    argv: >-
+      {{ zabbix_agent_compose_argv +
+         ['up', '--detach', '--no-deps', '--pull', 'never', '--no-build', zabbix_agent_service_name] }}
+  # Compose itself detects changes. Report any actual transition in the following bounded read.
+  changed_when: false
+  no_log: true
+
+- name: Report whether approved agent activation changed container identity or state
+  ansible.builtin.command:
+    argv:
+      - "{{ zabbix_agent_docker_binary }}"
+      - container
+      - inspect
+      - "{{ zabbix_agent_container_name }}"
+      - --format
+      - "{% raw %}{{.Id}}|{{.State.Status}}{% endraw %}"
+  register: zabbix_agent_activation_observed
+  changed_when: >-
+    zabbix_agent_container_observed.rc != 0 or
+    zabbix_agent_activation_observed.stdout.split('|') !=
+    [zabbix_agent_container_observed.stdout.split('|')[0],
+     zabbix_agent_container_observed.stdout.split('|')[4]]
+
+- name: Verify the actual Pi overlay metadata after attachment
+  ansible.builtin.command:
+    argv:
+      - "{{ zabbix_agent_docker_binary }}"
+      - network
+      - inspect
+      - "{{ zabbix_agent_overlay_network }}"
+      - --format
+      - "{% raw %}{{.Name}}|{{.Id}}|{{.Driver}}|{{.Scope}}|{{.Attachable}}{% endraw %}"
+  register: zabbix_agent_attached_overlay
+  changed_when: false
+  when: not zabbix_agent_existing_project
+
+- name: Inspect only the Pi agent attached network identity
+  ansible.builtin.command:
+    argv:
+      - "{{ zabbix_agent_docker_binary }}"
+      - container
+      - inspect
+      - "{{ zabbix_agent_container_name }}"
+      - --format
+      - >-
+        {{ ['{{len .NetworkSettings.Networks}}|',
+            '{{with index .NetworkSettings.Networks "underground"}}',
+            '{{.NetworkID}}{{end}}'] | join('') }}
+  register: zabbix_agent_attached_network
+  changed_when: false
+  when: not zabbix_agent_existing_project
+
+- name: Require the Pi agent to be attached only to the reviewed overlay
+  ansible.builtin.assert:
+    that:
+      - >-
+        zabbix_agent_attached_overlay.stdout ==
+        zabbix_agent_overlay_network ~ '|' ~ zabbix_agent_overlay_network_id ~ '|overlay|swarm|true'
+      - zabbix_agent_attached_network.stdout == '1|' ~ zabbix_agent_overlay_network_id
+    quiet: true
+    fail_msg: Actual overlay attachment differs from approval; activation acceptance failed.
+  when: not zabbix_agent_existing_project

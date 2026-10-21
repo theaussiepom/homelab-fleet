@@ -1,0 +1,9 @@
+# Ansible-managed by homelab-fleet. Do not edit.
+inventory_name: {{ inventory_hostname | to_json }}
+hostname: {{ fleet_hostname | to_json }}
+fleet_version: {{ fleet_version }}
+managed_by: {{ fleet_managed_by | to_json }}
+capabilities:
+{% for capability in fleet_capabilities | sort %}
+  - {{ capability }}
+{% endfor %}

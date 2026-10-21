@@ -1,0 +1,43 @@
+---
+- name: Read-only fleet runtime verification
+  hosts: managed_hosts
+  gather_facts: false
+  become: false
+  tasks:
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    - name: Verify mandatory Code Tunnel
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services['code-tunnel.service'].status == 'enabled'
+          - ansible_facts.services['code-tunnel.service'].state == 'running'
+        quiet: true
+
+    - name: Verify mandatory Pi reporter
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services['isp-rpi-reporter.service'].status == 'enabled'
+          - ansible_facts.services['isp-rpi-reporter.service'].state == 'running'
+        quiet: true
+      when: inventory_hostname in groups['raspberry_pis']
+
+    - name: Verify declared NFS sources and filesystems
+      ansible.builtin.command:
+        argv: [/usr/bin/findmnt, --noheadings, --raw, --target, "{{ item.target }}", --output, "SOURCE,FSTYPE"]
+      register: verified_mount
+      changed_when: false
+      failed_when: >-
+        verified_mount.rc != 0 or
+        verified_mount.stdout.split() | length != 2 or
+        verified_mount.stdout.split()[0] != item.source or
+        verified_mount.stdout.split()[1] not in ['nfs', 'nfs4']
+      loop: "{{ nfs_boot_mounts }}"
+      when: inventory_hostname in groups['docker_hosts']
+
+    - name: Explain telemetry chain credential gate
+      ansible.builtin.debug:
+        msg: >-
+          MQTT publication and fresh Home Assistant state verification are run by
+          scripts/verify-telemetry and require encrypted MQTT/HA credentials.
+      when: inventory_hostname == ansible_play_hosts_all[0]

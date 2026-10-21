@@ -1,0 +1,199 @@
+---
+- name: Validate inventory identities and immutable runtime prerequisites
+  ansible.builtin.assert:
+    that:
+      - zabbix_agent_admitted_hosts is sequence and zabbix_agent_admitted_hosts is not string
+      - zabbix_agent_admitted_hosts | length > 0
+      - zabbix_agent_admitted_hosts | unique | length == zabbix_agent_admitted_hosts | length
+      - zabbix_agent_controller_host in zabbix_agent_admitted_hosts
+      - zabbix_agent_lazy_overlay_host in zabbix_agent_admitted_hosts
+      - zabbix_agent_controller_host != zabbix_agent_lazy_overlay_host
+      - inventory_hostname in zabbix_agent_admitted_hosts
+      - zabbix_agent_existing_project is boolean
+      - zabbix_agent_existing_project == (inventory_hostname == zabbix_agent_controller_host)
+      - zabbix_agent_project_name is match('^[a-z0-9][a-z0-9_-]{0,62}$')
+      - zabbix_agent_compose_dir is match('^/[A-Za-z0-9_./-]+$')
+      - "'..' not in zabbix_agent_compose_dir.split('/')"
+      - zabbix_agent_compose_dir == '/etc/homelab/zabbix-agent'
+      - >-
+        zabbix_agent_service_name ==
+        ('zabbix-agent' if inventory_hostname == zabbix_agent_controller_host
+         else 'zabbix-agent-' ~ (inventory_hostname | lower))
+      - zabbix_agent_container_name == zabbix_agent_service_name
+      - zabbix_agent_image_user_verified
+      - zabbix_agent_runtime_uid is integer
+      - zabbix_agent_runtime_gid is integer
+      - zabbix_agent_runtime_uid == (0 if inventory_hostname == zabbix_agent_controller_host else 1997)
+      - zabbix_agent_runtime_gid == (0 if inventory_hostname == zabbix_agent_controller_host else 1995)
+      - zabbix_agent_verified_image_user | length > 0
+      - zabbix_agent_expected_image_id is match('^sha256:[0-9a-f]{64}$')
+      - zabbix_agent_expected_container_image_id is match('^sha256:[0-9a-f]{64}$')
+      - zabbix_agent_architecture == ('amd64' if inventory_hostname == zabbix_agent_controller_host else 'arm64')
+      - >-
+        zabbix_agent_hostname ==
+        ('zabbix-server' if inventory_hostname == zabbix_agent_controller_host else inventory_hostname)
+      - zabbix_agent_server_active is match('^[A-Za-z0-9][A-Za-z0-9.-]*:10051$')
+      - zabbix_agent_transport_mode in ['psk', 'unencrypted']
+      - not zabbix_agent_existing_project or zabbix_agent_transport_mode == 'psk'
+      - zabbix_agent_passive_server == ('zabbix-server' if inventory_hostname == zabbix_agent_controller_host else '')
+      - >-
+        zabbix_agent_passive_tls_accept ==
+        ('unencrypted' if inventory_hostname == zabbix_agent_controller_host else zabbix_agent_transport_mode)
+      - zabbix_agent_filesystem_anchors is sequence
+      - zabbix_agent_filesystem_anchors is not string
+      - zabbix_agent_filesystem_anchors | length <= 3
+      - zabbix_agent_docker_binary == '/usr/bin/docker'
+      - zabbix_agent_findmnt_binary == '/usr/bin/findmnt'
+    quiet: true
+    fail_msg: >-
+      Verified immutable image/user, exact identity and approved transport
+      inputs are required; no defaults are guessed.
+
+- name: Require reviewed canonical integration and a separate controller host runtime baseline
+  ansible.builtin.assert:
+    that:
+      - zabbix_agent_canonical_integrated
+      - zabbix_agent_canonical_compose == '/mnt/nas/docker/homelab/stacks/benbeast/monitoring/compose.yaml'
+      - zabbix_agent_project_name == 'monitoring'
+      - zabbix_agent_server_active == 'zabbix-server:10051'
+      - zabbix_agent_canonical_sha256 is match('^[0-9a-f]{64}$')
+      - zabbix_agent_expected_container_id is match('^[0-9a-f]{64}$')
+    quiet: true
+    fail_msg: >-
+      controller host requires separately approved canonical integration and its post-patch checksum.
+      This role never applies that patch or silently changes the agent version.
+  when: zabbix_agent_existing_project
+
+- name: Preserve current controller host version unless its separate change is explicitly approved
+  ansible.builtin.assert:
+    that:
+      - >-
+        zabbix_agent_expected_image_id ==
+        'sha256:faae8fdfb48382b7ab0c93d1d07ac45465f2c13bf0b691ff08b4717e16eedc5b'
+      - zabbix_agent_expected_container_image_id == zabbix_agent_expected_image_id
+      - zabbix_agent_image == zabbix_agent_expected_image_id
+      - zabbix_agent_image_digest == ''
+    quiet: true
+    fail_msg: Current controller host 7.4.2 is preserved by default; a version change requires its own approval.
+  when:
+    - zabbix_agent_existing_project
+    - not zabbix_agent_version_change_approved
+
+- name: Validate only the explicitly approved interim controller host version-change option
+  ansible.builtin.assert:
+    that:
+      - zabbix_agent_image == 'zabbix/zabbix-agent2:alpine-7.2.12'
+      - >-
+        zabbix_agent_image_digest ==
+        'sha256:e8b6bba220dd814eedb606c6a644ec38e17f20712bf1e5663e150ef3f00d87ed'
+      - >-
+        zabbix_agent_expected_image_id !=
+        'sha256:faae8fdfb48382b7ab0c93d1d07ac45465f2c13bf0b691ff08b4717e16eedc5b'
+      - zabbix_agent_verified_image_user == '1997'
+      - >-
+        zabbix_agent_expected_container_image_id in
+        ['sha256:faae8fdfb48382b7ab0c93d1d07ac45465f2c13bf0b691ff08b4717e16eedc5b',
+         zabbix_agent_expected_image_id]
+    quiet: true
+    fail_msg: >-
+      Only the separately approved interim 7.2.12 option is represented here. It is not
+      a supported long-term recommendation; compatibility and deployment gates remain separate.
+  when:
+    - zabbix_agent_existing_project
+    - zabbix_agent_version_change_approved
+
+- name: Require reviewed Pi image digest and stable project path
+  ansible.builtin.assert:
+    that:
+      - zabbix_agent_image == 'zabbix/zabbix-agent2:alpine-7.0.31'
+      - >-
+        zabbix_agent_image_digest ==
+        'sha256:90547dfac57596d500f85e022d00d7ea47ed9b46fd80fd5a027d039dbabb6fea'
+      - zabbix_agent_verified_image_user == '1997'
+      - >-
+        zabbix_agent_expected_image_id in
+        ['sha256:525da77bced818c01390082df267ed631b6d7de0e5155c46a44bbbe5c26fefd2',
+         'sha256:90547dfac57596d500f85e022d00d7ea47ed9b46fd80fd5a027d039dbabb6fea']
+      - zabbix_agent_project_name == 'zabbix-agent'
+      - zabbix_agent_server_active == 'zabbix-server:10051'
+      - zabbix_agent_overlay_network == 'underground'
+      - zabbix_agent_overlay_network_id is match('^[a-z0-9]{25}$')
+      - zabbix_agent_swarm_node_id is match('^[a-z0-9]{25}$')
+      - zabbix_agent_expected_container_image_id == zabbix_agent_expected_image_id
+      - zabbix_agent_expected_container_id == '' or zabbix_agent_expected_container_id is match('^[0-9a-f]{64}$')
+    quiet: true
+  when: not zabbix_agent_existing_project
+
+- name: Restrict manager-verified local overlay absence to the reviewed lazy-overlay host node
+  ansible.builtin.assert:
+    that:
+      - inventory_hostname == zabbix_agent_lazy_overlay_host
+      - not zabbix_agent_existing_project
+      - zabbix_agent_overlay_attachment_approved
+      - zabbix_agent_admitted_lazy_overlay_swarm_node_id is match('^[a-z0-9]{25}$')
+      - zabbix_agent_swarm_node_id == zabbix_agent_admitted_lazy_overlay_swarm_node_id
+      - zabbix_agent_overlay_network == 'underground'
+      - zabbix_agent_overlay_network_id == zabbix_agent_admitted_overlay_network_id
+    quiet: true
+    fail_msg: Only the reviewed lazy-overlay host first attachment can use fresh manager evidence.
+  when: zabbix_agent_overlay_absence_manager_verified
+
+- name: Validate externally provisioned PSK metadata inputs without showing them
+  ansible.builtin.assert:
+    that:
+      - zabbix_agent_secret_boundary_verified
+      - zabbix_agent_psk_identity is match('^[A-Za-z0-9_.-]{1,128}$')
+      - zabbix_agent_psk_file is match('^/[A-Za-z0-9_./-]+$')
+      - "'..' not in zabbix_agent_psk_file.split('/')"
+      - not zabbix_agent_psk_file.startswith(zabbix_agent_compose_dir + '/')
+      - not zabbix_agent_psk_file.startswith('/mnt/nas/')
+      - not zabbix_agent_psk_file.startswith('/workspace/')
+      - zabbix_agent_psk_container_file == '/run/zabbix-secrets/agent.psk'
+    quiet: true
+  no_log: true
+  when: zabbix_agent_transport_mode == 'psk'
+
+- name: Require explicit Pi-only unencrypted transport with no PSK inputs
+  ansible.builtin.assert:
+    that:
+      - not zabbix_agent_existing_project
+      - zabbix_agent_passive_server == ''
+      - zabbix_agent_passive_tls_accept == 'unencrypted'
+      - zabbix_agent_psk_identity == ''
+      - zabbix_agent_psk_file == ''
+    quiet: true
+    fail_msg: Unencrypted transport is Pi-only and must not carry PSK settings.
+  no_log: true
+  when: zabbix_agent_transport_mode == 'unencrypted'
+
+- name: Validate each narrow existing filesystem anchor
+  ansible.builtin.assert:
+    that:
+      - item.keys() | sort == ['alias', 'expected_fstype', 'expected_mount', 'source']
+      - item.alias in ['root', 'nfs_docker', 'nfs_dev']
+      - inventory_hostname == zabbix_agent_controller_host or item.alias == 'root'
+      - item.source is match('^/[A-Za-z0-9_./-]+$')
+      - "'..' not in item.source.split('/')"
+      - item.source not in ['/', '/mnt/nas', '/mnt/nas/docker', '/mnt/nas/dev', '/var/lib/docker']
+      - item.source != item.expected_mount
+      - item.expected_mount is match('^/[A-Za-z0-9_./-]*$')
+      - item.expected_fstype in ['ext4', 'xfs', 'btrfs', 'nfs', 'nfs4']
+      - item.alias != 'root' or item.expected_mount == '/'
+      - item.alias == 'root' or item.expected_fstype in ['nfs', 'nfs4']
+      - item.alias != 'nfs_docker' or item.expected_mount == '/mnt/nas/docker'
+      - item.alias != 'nfs_dev' or item.expected_mount == '/mnt/nas/dev'
+    quiet: true
+  loop: "{{ zabbix_agent_filesystem_anchors }}"
+  loop_control:
+    label: "{{ item.alias | default('invalid') }}"
+
+- name: Reject duplicate filesystem anchor aliases or sources
+  ansible.builtin.assert:
+    that:
+      - >-
+        (zabbix_agent_filesystem_anchors | map(attribute='alias') | unique | length) ==
+        (zabbix_agent_filesystem_anchors | length)
+      - >-
+        (zabbix_agent_filesystem_anchors | map(attribute='source') | unique | length) ==
+        (zabbix_agent_filesystem_anchors | length)
+    quiet: true

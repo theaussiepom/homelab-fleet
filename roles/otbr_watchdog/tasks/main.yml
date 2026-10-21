@@ -1,0 +1,60 @@
+---
+- name: Confirm role is restricted to declared OTBR hosts
+  ansible.builtin.assert:
+    that:
+      - inventory_hostname in groups['otbr_hosts']
+      - otbr_container_name == 'otbr'
+      - otbr_usb_vidpid == '303a:831a'
+    quiet: true
+
+- name: Preserve watchdog state directory and state file
+  ansible.builtin.file:
+    path: /var/lib/otbr-watchdog
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install canonical existing OTBR watchdog
+  ansible.builtin.template:
+    src: otbr-rcp-watchdog.j2
+    dest: /usr/local/sbin/otbr-rcp-watchdog
+    owner: root
+    group: root
+    mode: "0755"
+    backup: true
+  notify: Reload watchdog systemd units
+
+- name: Install watchdog service unit
+  ansible.builtin.template:
+    src: otbr-rcp-watchdog.service.j2
+    dest: /etc/systemd/system/otbr-rcp-watchdog.service
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  notify: Reload watchdog systemd units
+
+- name: Install watchdog timer unit
+  ansible.builtin.template:
+    src: otbr-rcp-watchdog.timer.j2
+    dest: /etc/systemd/system/otbr-rcp-watchdog.timer
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  notify: Reload watchdog systemd units
+
+- name: Enable existing watchdog timer without starting OTBR or invoking recovery
+  ansible.builtin.systemd_service:
+    name: otbr-rcp-watchdog.timer
+    enabled: true
+    daemon_reload: true
+
+- name: Assert OTBR mutation safety gates remain closed
+  ansible.builtin.assert:
+    that:
+      - not homelab_allow_otbr_restart | bool
+      - not homelab_allow_reboot | bool
+    fail_msg: Ordinary watchdog adoption never opens OTBR restart or reboot gates.
+  when: not ansible_check_mode

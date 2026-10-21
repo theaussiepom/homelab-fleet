@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+root_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+: "${HOMELAB_SITE_CATALOG:?Set the private catalog path}"
+: "${HOMELAB_FLEET_INVENTORY:?Set the catalog-generated inventory directory}"
+uv run python "$root_dir/scripts/check-inventory" --skip-secrets \
+  --catalog "$HOMELAB_SITE_CATALOG" --inventory "$HOMELAB_FLEET_INVENTORY" >/dev/null
+
+uv run ansible-playbook -i "$HOMELAB_FLEET_INVENTORY/hosts.yml" "$root_dir/playbooks/verify.yml" "$@"
+exec "$root_dir/scripts/verify-telemetry"

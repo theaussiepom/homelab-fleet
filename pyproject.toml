@@ -1,0 +1,40 @@
+[project]
+name = "homelab-fleet"
+version = "0.1.0"
+description = "Declarative Home Lab fleet management and observer release deployment"
+requires-python = ">=3.11"
+dependencies = [
+  "PyYAML>=6.0,<7",
+]
+
+[dependency-groups]
+dev = [
+  "ansible-core>=2.18,<2.21",
+  "ansible-lint>=25.1,<27",
+  "mypy>=1.15,<2",
+  "pytest>=8.3,<10",
+  "ruff>=0.11,<1",
+  "shellcheck-py>=0.10,<1",
+  "types-PyYAML>=6.0,<7",
+  "yamllint>=1.35,<2",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "S"]
+ignore = ["S101", "S603", "S607"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["tests"]
+mypy_path = ["scripts"]

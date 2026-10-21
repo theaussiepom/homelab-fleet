@@ -1,0 +1,24 @@
+# Ansible-managed by homelab-fleet. Do not edit.
+[Unit]
+Description=Localhost-only Home Lab observer MCP gateway
+After=network-online.target homelab-probe-agent.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+EnvironmentFile=/etc/homelab-observer/gateway.env
+ExecStart=/opt/homelab-observer/venv/bin/homelab-observer-gateway
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/homelab-observer
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target

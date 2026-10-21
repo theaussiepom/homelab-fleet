@@ -1,0 +1,60 @@
+---
+- name: Adopt fleet identity
+  hosts: managed_hosts
+  gather_facts: true
+  become: true
+  roles:
+    - role: fleet_identity
+      tags: [fleet_identity]
+
+- name: Adopt NFS-before-Docker boot policy without runtime disruption
+  hosts: docker_hosts
+  gather_facts: false
+  become: true
+  roles:
+    - role: nfs_docker
+      tags: [nfs_docker]
+
+- name: Adopt mandatory Code Tunnel policy
+  hosts: code_tunnel_hosts
+  gather_facts: false
+  become: true
+  roles:
+    - role: code_tunnel
+      tags: [code_tunnel]
+
+- name: Adopt Raspberry Pi telemetry and rebuild backups
+  hosts: raspberry_pis
+  gather_facts: false
+  become: true
+  roles:
+    - role: pi_telemetry
+      tags: [pi_telemetry]
+    - role: host_config_backup
+      tags: [host_config_backup]
+
+- name: Adopt the existing OTBR watchdog without invoking it
+  hosts: otbr_hosts
+  gather_facts: false
+  become: true
+  roles:
+    - role: otbr_watchdog
+      tags: [otbr_watchdog]
+
+- name: Adopt low-privilege observer access
+  hosts: observer_hosts
+  gather_facts: false
+  become: true
+  roles:
+    - role: observer_access
+      tags: [observer_access]
+    - role: observer_probe_agent
+      tags: [observer_probe_agent]
+
+- name: Adopt BenBeast observer gateway
+  hosts: observer_gateway
+  gather_facts: false
+  become: true
+  roles:
+    - role: observer_gateway
+      tags: [observer_gateway]

@@ -1,0 +1,9 @@
+---
+- name: Require the exact host and immutable profile staging scope
+  ansible.builtin.assert:
+    that:
+      - homelab_allow_mutation | bool
+      - homelab_preserve_uid_gid | bool
+      - fleet_profile_stage_admitted | bool
+      - fleet_network_profiles | length > 0
+    fail_msg: "Pi adoption requires its exact reviewed scope; no inherited production authority."

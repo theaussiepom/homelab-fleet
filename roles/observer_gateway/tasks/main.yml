@@ -1,0 +1,112 @@
+---
+- name: Restrict gateway role to BenBeast inventory group
+  ansible.builtin.assert:
+    that:
+      - inventory_hostname in groups['observer_gateway']
+      - groups['observer_gateway'] | length == 1
+    quiet: true
+
+- name: Verify pinned observer gateway entry point exists
+  ansible.builtin.stat:
+    path: /opt/homelab-observer/venv/bin/homelab-observer-gateway
+  register: observer_gateway_entrypoint
+  when: not ansible_check_mode
+
+- name: Require installed pinned observer package for gateway
+  ansible.builtin.assert:
+    that:
+      - observer_gateway_entrypoint.stat.exists
+      - observer_gateway_entrypoint.stat.executable
+    fail_msg: The pinned observer wheel must be installed before configuring the gateway.
+    quiet: true
+  when: not ansible_check_mode
+
+- name: Create gateway SSH state directory
+  ansible.builtin.file:
+    path: /var/lib/homelab-observer/ssh
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Require gateway secrets for live deployment
+  ansible.builtin.assert:
+    that:
+      - vault_observer_private_key is defined
+      - vault_observer_known_hosts is defined
+      - vault_mcp_bearer_token is defined
+      - vault_home_assistant_token is defined
+      - vault_mqtt_username is defined
+      - vault_mqtt_password is defined
+      - vault_observer_private_key is not search('CHANGE_ME')
+      - vault_home_assistant_token is string
+      - vault_home_assistant_token | length > 0
+      - vault_home_assistant_token != 'CHANGE_ME'
+      - vault_mcp_bearer_token != 'CHANGE_ME'
+      - vault_mqtt_username != 'CHANGE_ME'
+      - vault_mqtt_password != 'CHANGE_ME'
+    fail_msg: Define gateway SSH, known-hosts, MCP, MQTT, and HA secrets in encrypted vault.yml.
+  when: not ansible_check_mode
+  no_log: true
+
+- name: Install gateway-only SSH private key
+  ansible.builtin.copy:
+    content: "{{ vault_observer_private_key }}"
+    dest: /var/lib/homelab-observer/ssh/id_ed25519
+    owner: root
+    group: root
+    mode: "0600"
+    backup: true
+  when: vault_observer_private_key is defined
+  no_log: true
+
+- name: Install pinned managed-host SSH host keys
+  ansible.builtin.copy:
+    content: "{{ vault_observer_known_hosts }}"
+    dest: /var/lib/homelab-observer/ssh/known_hosts
+    owner: root
+    group: root
+    mode: "0600"
+    backup: true
+  when: vault_observer_known_hosts is defined
+  no_log: true
+
+- name: Install root-only gateway environment
+  ansible.builtin.template:
+    src: gateway.env.j2
+    dest: /etc/homelab-observer/gateway.env
+    owner: root
+    group: root
+    mode: "0600"
+    backup: true
+  when:
+    - vault_mcp_bearer_token is defined
+    - vault_home_assistant_token is defined
+    - vault_mqtt_username is defined
+    - vault_mqtt_password is defined
+  no_log: true
+  notify: Conditionally restart observer gateway
+
+- name: Install localhost-only gateway service
+  ansible.builtin.template:
+    src: homelab-observer-gateway.service.j2
+    dest: /etc/systemd/system/homelab-observer-gateway.service
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  notify:
+    - Reload gateway systemd units
+    - Conditionally restart observer gateway
+
+- name: Enable observer gateway without forcing a start
+  ansible.builtin.systemd_service:
+    name: homelab-observer-gateway.service
+    enabled: true
+    daemon_reload: true
+  when: not ansible_check_mode
+
+- name: Report planned gateway enablement in check mode
+  ansible.builtin.debug:
+    msg: Would enable homelab-observer-gateway.service without starting it.
+  when: ansible_check_mode

@@ -1,0 +1,25 @@
+---
+- name: Validate fleet identity inputs
+  ansible.builtin.assert:
+    that:
+      - inventory_hostname in groups['managed_hosts']
+      - fleet_hostname | length > 0
+      - fleet_capabilities | length > 0
+    quiet: true
+
+- name: Create local fleet configuration directory
+  ansible.builtin.file:
+    path: /etc/homelab
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install fleet identity
+  ansible.builtin.template:
+    src: identity.yml.j2
+    dest: /etc/homelab/identity.yml
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true

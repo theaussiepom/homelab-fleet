@@ -1,0 +1,86 @@
+---
+- name: Create dedicated diagnostic groups
+  ansible.builtin.group:
+    name: "{{ item }}"
+    system: true
+  loop:
+    - "{{ observer_group }}"
+    - "{{ observer_user }}"
+
+- name: Create locked low-privilege diagnostic account
+  ansible.builtin.user:
+    name: "{{ observer_user }}"
+    system: true
+    create_home: true
+    home: /var/lib/chatgpt-diag
+    shell: /bin/bash
+    password_lock: true
+    group: "{{ observer_user if not ansible_check_mode else omit }}"
+    groups: "{{ [observer_group] if not ansible_check_mode else omit }}"
+    append: false
+
+- name: Create the only writable diagnostic scratch directory
+  ansible.builtin.file:
+    path: /var/lib/chatgpt-diag/scratch
+    state: directory
+    owner: "{{ observer_user if not ansible_check_mode else omit }}"
+    group: "{{ observer_user if not ansible_check_mode else omit }}"
+    mode: "0700"
+
+- name: Install diagnostic-user SSH restrictions
+  ansible.builtin.template:
+    src: 90-homelab-diag.conf.j2
+    dest: /etc/ssh/sshd_config.d/90-homelab-diag.conf
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+    validate: /usr/sbin/sshd -t -f %s
+  notify: Conditionally reload SSH
+
+- name: Note missing observer public key during check mode
+  ansible.builtin.debug:
+    msg: Observer public key is unavailable; authorized_keys is preserved.
+  when: vault_observer_public_key is not defined
+
+- name: Require observer public key for live access deployment
+  ansible.builtin.assert:
+    that:
+      - vault_observer_public_key is defined
+      - vault_observer_public_key != 'CHANGE_ME'
+    fail_msg: Define vault_observer_public_key in encrypted inventory vault.yml.
+  when: not ansible_check_mode
+  no_log: true
+
+- name: Authorize only the gateway key with source and forced-command restrictions
+  ansible.posix.authorized_key:
+    user: "{{ observer_user }}"
+    key: "{{ vault_observer_public_key }}"
+    # yamllint disable rule:line-length
+    key_options: 'from="{{ observer_gateway_source_address }}",restrict,command="/opt/homelab-observer/venv/bin/homelab-diag-runner --config /etc/homelab-observer/runtime.json"'
+    # yamllint enable rule:line-length
+    exclusive: true
+    manage_dir: true
+  when: vault_observer_public_key is defined
+  no_log: true
+
+- name: Read diagnostic account groups
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/id
+      - --groups
+      - --name
+      - "{{ observer_user }}"
+  register: observer_access_account_groups
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Reject privileged diagnostic group membership
+  ansible.builtin.assert:
+    that:
+      - "'sudo' not in observer_access_account_groups.stdout.split()"
+      - "'docker' not in observer_access_account_groups.stdout.split()"
+      - "'systemd-journal' not in observer_access_account_groups.stdout.split()"
+      - "'adm' not in observer_access_account_groups.stdout.split()"
+    quiet: true
+  when: not ansible_check_mode

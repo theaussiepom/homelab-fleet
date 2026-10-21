@@ -1,0 +1,9 @@
+---
+- name: Prepare explicitly enabled Docker-managed Zabbix agents
+  hosts: zabbix_pi_agents
+  become: true
+  gather_facts: false
+  serial: 1
+  any_errors_fatal: true
+  roles:
+    - role: zabbix_agent

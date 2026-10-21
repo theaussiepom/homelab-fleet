@@ -1,0 +1,104 @@
+---
+- name: Validate NFS mount declarations
+  ansible.builtin.assert:
+    that:
+      - nfs_boot_mounts | length > 0
+      - item.source is match('^\\S+:/\\S+$')
+      - item.target is match('^/\\S+$')
+    quiet: true
+  loop: "{{ nfs_boot_mounts }}"
+  loop_control:
+    label: "{{ item.source }} -> {{ item.target }}"
+
+- name: Inspect current NFS boot targets without mounting
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/findmnt
+      - --kernel
+      - --nocanonicalize
+      - --noheadings
+      - --raw
+      - --mountpoint
+      - "{{ item.target }}"
+      - --output
+      - SOURCE,FSTYPE,TARGET,OPTIONS
+  register: nfs_docker_current_mounts
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  loop: "{{ nfs_boot_mounts }}"
+  loop_control:
+    label: "{{ item.target }}"
+
+- name: Reject missing or unexpected production NFS mounts during adoption
+  ansible.builtin.assert:
+    that:
+      - item.rc == 0
+      - item.stdout_lines | length == 1
+      - item.stdout.split() | length == 4
+      - item.stdout.split()[0] == item.item.source
+      - item.stdout.split()[1] in ['nfs', 'nfs4']
+      - item.stdout.split()[2] == item.item.target
+      - "'rw' not in nfs_mount_options.split(',') or 'rw' in item.stdout.split()[3].split(',')"
+      - "'rw' not in nfs_mount_options.split(',') or 'ro' not in item.stdout.split()[3].split(',')"
+    fail_msg: >-
+      {{ item.item.target }} is absent or is not {{ item.item.source }} over NFS;
+      refusing to alter or mount it automatically.
+    quiet: true
+  loop: "{{ nfs_docker_current_mounts.results }}"
+  loop_control:
+    label: "{{ item.item.target }}"
+
+- name: Install local idempotent NFS mount validator
+  ansible.builtin.copy:
+    src: homelab-nfs-ensure
+    dest: /usr/local/libexec/homelab-nfs-ensure
+    owner: root
+    group: root
+    mode: "0755"
+    backup: true
+  notify: Reload systemd configuration
+
+- name: Install NFS-before-Docker unit
+  ansible.builtin.template:
+    src: nfs-nas.service.j2
+    dest: /etc/systemd/system/nfs-nas.service
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  notify: Reload systemd configuration
+
+- name: Create the Docker systemd drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/docker.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install Docker dependency drop-in
+  ansible.builtin.template:
+    src: docker-override.conf.j2
+    dest: /etc/systemd/system/docker.service.d/20-homelab-nfs-preflight.conf
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  notify: Reload systemd configuration
+
+- name: Enable NFS boot unit without starting or remounting it
+  ansible.builtin.systemd_service:
+    name: nfs-nas.service
+    enabled: true
+  notify: Reload systemd configuration
+
+- name: Confirm role does not request disruptive operations
+  ansible.builtin.assert:
+    that:
+      - not homelab_allow_nfs_remount | bool
+      - not homelab_allow_docker_restart | bool
+    fail_msg: >-
+      This adoption role installs boot files only. Remount and Docker restart
+      validation require a separately approved maintenance procedure.
+  when: not ansible_check_mode

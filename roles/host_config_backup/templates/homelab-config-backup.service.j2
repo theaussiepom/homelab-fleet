@@ -1,0 +1,14 @@
+# Ansible-managed by homelab-fleet. Do not edit.
+[Unit]
+Description=Encrypted local-configuration rebuild backup
+Requires=homelab-backup-mount.service
+After=homelab-backup-mount.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/homelab/backup/restic.env
+ExecStart=/usr/local/sbin/homelab-config-backup
+Nice=10
+IOSchedulingClass=idle
+PrivateTmp=yes
+NoNewPrivileges=yes

@@ -1,0 +1,27 @@
+{
+  "generated_at": {{ discovery_timestamp.stdout | to_json }},
+  "timezone": "Australia/Sydney",
+  "read_only": true,
+  "hosts": {
+{% for host in groups['managed_hosts'] | sort %}
+    {{ host | to_json }}: {
+      "reachable": {{ (hostvars[host].ansible_facts.hostname is defined) | to_json }},
+      "hostname": {{ hostvars[host].ansible_facts.hostname | default('unknown') | to_json }},
+      "os": {{ hostvars[host].ansible_facts.distribution | default('unknown') | to_json }},
+      "os_version": {{ hostvars[host].ansible_facts.distribution_version | default('unknown') | to_json }},
+      "architecture": {{ hostvars[host].ansible_facts.architecture | default('unknown') | to_json }},
+      "nfs": {{ hostvars[host].discovery_nfs.stdout_lines | default([]) | to_json }},
+      "services": {{ hostvars[host].discovery_services.stdout_lines | default([]) | to_json }},
+      "code_tunnel_version": {{ hostvars[host].discovery_code_version.stdout_lines | default([]) | to_json }},
+      "containers": {{ hostvars[host].discovery_containers.stdout_lines | default([]) | to_json }}
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+  },
+  "external_dependencies": {
+    "storage": {
+      "address": {{ lookup('ansible.builtin.env', 'HOMELAB_REPORT_STORAGE_ADDRESS', default=undef()) | to_json }},
+      "managed": false,
+      "ssh_authentication": "not checked by this playbook"
+    }
+  }
+}

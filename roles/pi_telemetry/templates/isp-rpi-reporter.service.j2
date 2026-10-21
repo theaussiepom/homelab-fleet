@@ -1,0 +1,22 @@
+# Ansible-managed by homelab-fleet. Do not edit.
+[Unit]
+Description=RPi Reporter MQTT Client/Daemon
+Documentation=https://github.com/ironsheep/RPi-Reporter-MQTT2HA-Daemon
+After=network.target network-online.target
+Wants=network-online.target
+Requires=network.target
+
+[Service]
+Type=notify
+User={{ telemetry_reporter_user }}
+Group={{ telemetry_reporter_group }}
+WorkingDirectory={{ telemetry_reporter_path }}/
+ExecStart=/usr/bin/python3 -u {{ telemetry_reporter_path }}/ISP-RPi-mqtt-daemon.py
+StandardOutput=null
+StandardError=journal
+Environment=PYTHONUNBUFFERED=1
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

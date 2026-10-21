@@ -1,0 +1,17 @@
+# Ansible-managed by homelab-fleet. Host identity/authentication stays in {{ code_tunnel_home }}.
+[Unit]
+Description=Visual Studio Code Tunnel ({{ code_tunnel_name }})
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ code_tunnel_user }}
+Environment=HOME={{ code_tunnel_home }}
+ExecStart={{ code_tunnel_binary }} {{ code_tunnel_exec_args | join(' ') }}
+Restart=on-failure
+RestartSec=10
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

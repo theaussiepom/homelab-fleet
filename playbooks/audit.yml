@@ -1,0 +1,60 @@
+---
+- name: Static inventory policy audit
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Run machine-readable inventory and secret policy checks
+      ansible.builtin.command:
+        argv:
+          - "{{ playbook_dir }}/../scripts/check-inventory"
+          - --catalog
+          - "{{ lookup('ansible.builtin.env', 'HOMELAB_SITE_CATALOG') }}"
+          - --inventory
+          - "{{ lookup('ansible.builtin.env', 'HOMELAB_FLEET_INVENTORY') }}"
+          - --report
+          - "{{ playbook_dir }}/../reports/fleet-audit.json"
+      changed_when: false
+
+- name: Read-only runtime admission audit
+  hosts: managed_hosts
+  gather_facts: false
+  become: false
+  tasks:
+    - name: Gather service facts without repair
+      ansible.builtin.service_facts:
+
+    - name: Enforce mandatory Code Tunnel runtime policy
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services['code-tunnel.service'].status == 'enabled'
+          - ansible_facts.services['code-tunnel.service'].state == 'running'
+        quiet: true
+
+    - name: Enforce mandatory Pi telemetry runtime policy
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services['isp-rpi-reporter.service'].status == 'enabled'
+          - ansible_facts.services['isp-rpi-reporter.service'].state == 'running'
+        quiet: true
+      when: inventory_hostname in groups['raspberry_pis']
+
+    - name: Read OTBR watchdog timer state
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/systemctl
+          - show
+          - --no-pager
+          - --property=LoadState,ActiveState,UnitFileState
+          - otbr-rcp-watchdog.timer
+      register: audit_otbr_watchdog_timer
+      changed_when: false
+      when: inventory_hostname in groups['otbr_hosts']
+
+    - name: Enforce OTBR watchdog timer scope and state
+      ansible.builtin.assert:
+        that:
+          - "'LoadState=loaded' in audit_otbr_watchdog_timer.stdout"
+          - "'ActiveState=active' in audit_otbr_watchdog_timer.stdout"
+          - "'UnitFileState=enabled' in audit_otbr_watchdog_timer.stdout"
+        quiet: true
+      when: inventory_hostname in groups['otbr_hosts']

@@ -1,0 +1,312 @@
+#!/usr/bin/env python3
+"""Validate fleet inheritance, observer pins/boundaries, and tracked secrets."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+ROOT = Path(__file__).resolve().parent.parent
+INVENTORY = None  # No implicit production inventory.
+
+
+def load_yaml(path: Path) -> dict[str, Any]:
+    with path.open(encoding="utf-8") as handle:
+        value = yaml.safe_load(handle)
+    if not isinstance(value, dict):
+        raise ValueError(f"expected mapping in {path}")
+    return value
+
+
+def group_hosts(inventory: dict[str, Any], group: str) -> set[str]:
+    children = inventory["all"]["children"]
+    return set(children[group].get("hosts", {}))
+
+
+def check(
+    *,
+    include_secret_scan: bool = True,
+    inventory_dir: Path | None = None,
+    catalog_path: Path | None = None,
+) -> dict[str, Any]:
+    from fleet_catalog import load_catalog, verify_projection
+
+    if inventory_dir is None or catalog_path is None:
+        raise ValueError("explicit catalog and projected inventory required")
+    contract = verify_projection(load_catalog(catalog_path), inventory_dir)
+    policy = contract["policy"]
+    inventory = load_yaml(inventory_dir / "hosts.yml")
+    all_vars = load_yaml(inventory_dir / "group_vars/all.yml")
+    managed = group_hosts(inventory, "managed_hosts")
+    docker = group_hosts(inventory, "docker_hosts")
+    pis = group_hosts(inventory, "raspberry_pis")
+    telemetry = group_hosts(inventory, "telemetry_hosts")
+    backups = group_hosts(inventory, "backup_hosts")
+    code = group_hosts(inventory, "code_tunnel_hosts")
+    observers = group_hosts(inventory, "observer_hosts")
+    otbr = group_hosts(inventory, "otbr_hosts")
+    gateway = group_hosts(inventory, "observer_gateway")
+    errors: list[str] = []
+
+    required_managed = set(policy["managed_hosts"])
+    _expect(
+        required_managed == managed,
+        "managed_hosts must exactly match the reviewed catalog",
+        errors,
+    )
+    _expect(pis <= telemetry, "every Pi must inherit telemetry", errors)
+    _expect(pis <= backups, "every Pi must inherit configuration backup", errors)
+    _expect(pis <= observers, "every Pi must inherit observer access", errors)
+    _expect(managed <= docker, "every managed host must inherit Docker/NFS policy", errors)
+    _expect(managed <= code, "every managed host must inherit Code Tunnel", errors)
+    _expect(managed <= observers, "every managed host must inherit observer access", errors)
+    _expect(
+        otbr == set(policy["otbr_hosts"]),
+        "watchdog scope must be exactly OTBR hosts",
+        errors,
+    )
+    _expect(gateway == set(policy["observer_gateway"]), "gateway differs from catalog", errors)
+
+    observer_version = str(all_vars.get("homelab_observer_version", ""))
+    observer_url = str(all_vars.get("homelab_observer_release_url", ""))
+    observer_sha256 = str(all_vars.get("homelab_observer_sha256", ""))
+    expected_artifact = f"homelab_observer-{observer_version}-py3-none-any.whl"
+    _expect(
+        re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", observer_version) is not None,
+        "homelab_observer_version must be an exact semantic version",
+        errors,
+    )
+    _expect(
+        int(all_vars.get("homelab_observer_schema_version", 0)) == 1,
+        "homelab_observer_schema_version must be the supported schema 1",
+        errors,
+    )
+    _expect(
+        f"/releases/download/v{observer_version}/{expected_artifact}" in observer_url,
+        "homelab_observer_release_url must identify the exact versioned wheel release",
+        errors,
+    )
+    _expect(
+        re.fullmatch(r"[0-9a-f]{64}", observer_sha256) is not None and observer_sha256 != "0" * 64,
+        "homelab_observer_sha256 must be a nonzero lowercase SHA-256 pin",
+        errors,
+    )
+    _expect(
+        all_vars.get("homelab_observer_local_artifact") == "",
+        "committed homelab_observer_local_artifact must remain empty",
+        errors,
+    )
+
+    safety_flags = (
+        "homelab_allow_service_restart",
+        "homelab_allow_docker_restart",
+        "homelab_allow_reboot",
+        "homelab_allow_nfs_remount",
+        "homelab_allow_otbr_restart",
+        "homelab_retire_legacy_backup",
+        "homelab_allow_backup_forget",
+    )
+    for flag in safety_flags:
+        _expect(all_vars.get(flag) is False, f"{flag} must default false", errors)
+
+    nfs_pairs: set[tuple[str, str]] = set()
+    telemetry_ids: set[str] = set()
+    telemetry_topics: set[str] = set()
+    telemetry_sensors: set[str] = set()
+    backup_delays: set[int] = set()
+    observer_addresses: set[str] = set()
+    observer_identities: set[str] = set()
+    expected_nfs = {host: tuple(pair) for host, pair in policy["primary_nfs"].items()}
+    hosts_data = inventory["all"]["children"]["managed_hosts"]["hosts"]
+    for host in sorted(managed):
+        host_vars = load_yaml(inventory_dir / f"host_vars/{host}.yml")
+        pairs = {(item["source"], item["target"]) for item in host_vars["nfs_boot_mounts"]}
+        _expect(bool(pairs), f"{host} must declare at least one NFS boot mount", errors)
+        if host in expected_nfs:
+            _expect(
+                expected_nfs[host] in pairs,
+                f"{host} has incorrect primary NFS mapping",
+                errors,
+            )
+        for pair in pairs:
+            _expect(pair not in nfs_pairs, f"duplicate NFS source/target pair: {pair}", errors)
+            nfs_pairs.add(pair)
+        address = hosts_data[host]["ansible_host"]
+        _expect(
+            address not in observer_addresses,
+            f"duplicate observer address: {address}",
+            errors,
+        )
+        observer_addresses.add(address)
+        identity = host_vars["fleet_hostname"]
+        _expect(
+            identity not in observer_identities,
+            f"duplicate observer identity: {identity}",
+            errors,
+        )
+        observer_identities.add(identity)
+        for allowlist_name in ("fleet_capabilities", "observer_services", "observer_containers"):
+            values = host_vars.get(allowlist_name, [])
+            _expect(
+                isinstance(values, list) and len(values) == len(set(values)),
+                f"{host} {allowlist_name} must be a unique list",
+                errors,
+            )
+            for value in values:
+                _expect(
+                    isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9_.@-]+", value) is not None,
+                    f"invalid {allowlist_name} value for {host}: {value!r}",
+                    errors,
+                )
+        if host in pis:
+            client_id = host_vars["telemetry_mqtt_client_id"]
+            topic = host_vars["telemetry_base_topic"]
+            sensor = host_vars["telemetry_sensor_name"]
+            delay = int(host_vars["backup_timer_randomized_delay_sec"])
+            _expect(
+                re.fullmatch(r"[A-Za-z0-9._-]+", client_id) is not None,
+                f"invalid MQTT client ID for {host}",
+                errors,
+            )
+            _expect(
+                client_id not in telemetry_ids, f"duplicate MQTT client ID: {client_id}", errors
+            )
+            telemetry_ids.add(client_id)
+            _expect(
+                topic not in telemetry_topics,
+                f"duplicate MQTT base topic: {topic}",
+                errors,
+            )
+            telemetry_topics.add(topic)
+            _expect(
+                sensor not in telemetry_sensors,
+                f"duplicate telemetry sensor: {sensor}",
+                errors,
+            )
+            telemetry_sensors.add(sensor)
+            _expect(delay not in backup_delays, f"duplicate backup timer delay: {delay}", errors)
+            backup_delays.add(delay)
+
+    source_boundary_findings = scan_observer_source_boundaries()
+    errors.extend(source_boundary_findings)
+    tracked_secret_findings = scan_tracked_secrets() if include_secret_scan else []
+    errors.extend(tracked_secret_findings)
+    return {
+        "ok": not errors,
+        "checks": {
+            "managed_hosts": sorted(managed),
+            "raspberry_pis": sorted(pis),
+            "otbr_hosts": sorted(otbr),
+            "observer_gateway": sorted(gateway),
+            "nfs_pairs": sorted(f"{source} -> {target}" for source, target in nfs_pairs),
+            "telemetry_client_ids": sorted(telemetry_ids),
+            "telemetry_base_topics": sorted(telemetry_topics),
+            "telemetry_sensor_names": sorted(telemetry_sensors),
+            "backup_timer_delays": sorted(backup_delays),
+            "safety_flags_default_false": all(all_vars.get(flag) is False for flag in safety_flags),
+            "observer_version": observer_version,
+            "observer_release_url": observer_url,
+            "observer_sha256": observer_sha256,
+            "observer_source_boundary_findings": source_boundary_findings,
+            "tracked_secret_findings": tracked_secret_findings,
+        },
+        "errors": errors,
+    }
+
+
+def tracked_file_names() -> list[str]:
+    result = subprocess.run(
+        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+    )
+    return [raw_name.decode() for raw_name in result.stdout.split(b"\0") if raw_name]
+
+
+def scan_observer_source_boundaries() -> list[str]:
+    findings: list[str] = []
+    for name in tracked_file_names():
+        path = ROOT / name
+        if not path.is_file() or name.startswith(("docs/", "reports/")):
+            continue
+        if name.startswith("observer/src/"):
+            findings.append(f"observer Python source remains in fleet: {name}")
+        if re.search(r"(?:^|/)homelab_observer/[^/]+\.py$", name):
+            findings.append(f"observer Python module remains in fleet: {name}")
+    return findings
+
+
+def scan_tracked_secrets() -> list[str]:
+    findings: list[str] = []
+    for name in tracked_file_names():
+        if name.endswith(".example") or name == "AGENTS.md":
+            continue
+        path = ROOT / name
+        if not path.is_file() or path.stat().st_size > 2_000_000:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        if name != "scripts/check-inventory" and "-----BEGIN OPENSSH PRIVATE KEY-----" in text:
+            findings.append(f"private key material in tracked file: {name}")
+        for match in re.finditer(r"(?im)^\s*(?:password|token|secret)\s*[:=]\s*(.+)$", text):
+            candidate = match.group(1).strip().strip("\"'")
+            if path.suffix == ".py" and not match.group(1).lstrip().startswith(('"', "'")):
+                continue
+            if candidate and not any(
+                marker in candidate
+                for marker in ("CHANGE_ME", "{{", "os.environ", "getenv", "REDACTED")
+            ):
+                findings.append(f"possible plaintext secret in tracked file: {name}")
+                break
+    return findings
+
+
+def _expect(condition: bool, message: str, errors: list[str]) -> None:
+    if not condition:
+        errors.append(message)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--report", type=Path)
+    parser.add_argument("--catalog", type=Path)
+    parser.add_argument("--inventory", type=Path)
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--skip-secrets", action="store_true")
+    mode.add_argument("--secrets-only", action="store_true")
+    args = parser.parse_args()
+    if args.secrets_only:
+        findings = scan_tracked_secrets()
+        report = {"ok": not findings, "findings": findings}
+    else:
+        if args.catalog is None or args.inventory is None:
+            parser.error("--catalog and --inventory are required except with --secrets-only")
+        try:
+            report = check(
+                include_secret_scan=not args.skip_secrets,
+                catalog_path=args.catalog,
+                inventory_dir=args.inventory,
+            )
+        except (ValueError, OSError, KeyError, TypeError):
+            report = {"ok": False, "errors": ["catalog/projection validation refused"]}
+    payload = json.dumps(report, indent=2, sort_keys=True) + "\n"
+    if args.report:
+        args.report.write_text(payload, encoding="utf-8")
+    print(payload, end="")
+    raise SystemExit(0 if report["ok"] else 1)
+
+
+if __name__ == "__main__":
+    main()

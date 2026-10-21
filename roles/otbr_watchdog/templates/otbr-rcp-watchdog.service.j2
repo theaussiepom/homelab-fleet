@@ -1,0 +1,18 @@
+# Ansible-managed by homelab-fleet. Do not edit.
+[Unit]
+Description=OTBR RCP health watchdog (USB reset / reboot escalation)
+After=docker.service network-online.target
+Wants=docker.service
+
+[Service]
+Type=oneshot
+Environment=OTBR_FAIL_THRESHOLD={{ otbr_fail_threshold }}
+Environment=OTBR_USB_RESET_MAX={{ otbr_usb_reset_max }}
+Environment=OTBR_USB_RESET_COOLDOWN_SEC={{ otbr_usb_reset_cooldown_sec }}
+Environment=OTBR_REBOOT_COOLDOWN_SEC={{ otbr_reboot_cooldown_sec }}
+Environment=OTBR_HEALTH_WAIT_SEC={{ otbr_health_wait_sec }}
+Environment=OTBR_BOOT_GRACE_SEC={{ otbr_boot_grace_sec }}
+Environment=OTBR_CONTAINER={{ otbr_container_name }}
+Environment=OTBR_USB_VIDPID={{ otbr_usb_vidpid }}
+ExecStart=/usr/local/sbin/otbr-rcp-watchdog
+Nice=10
